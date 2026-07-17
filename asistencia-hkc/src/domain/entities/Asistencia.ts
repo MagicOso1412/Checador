@@ -1,3 +1,5 @@
+import { TipoRegistro } from "../enums/TipoRegistro";
+
 export class Asistencia {
 
     constructor(
@@ -8,15 +10,15 @@ export class Asistencia {
 
         public proyectoId: string,
 
-        public tipoRegistro: string,
+        public tipoRegistro: TipoRegistro,
 
         public fechaHora: Date,
 
         public fotoUri: string,
 
-        public latitud: number,
+        public latitud: number | null,
 
-        public longitud: number,
+        public longitud: number | null,
 
         public sincronizado: boolean
 
