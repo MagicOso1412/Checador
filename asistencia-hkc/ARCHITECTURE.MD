@@ -29,7 +29,10 @@ Desarrollar una aplicación móvil multiplataforma para el registro de asistenci
 - React Native
 - Expo
 - Expo Router
-- SQLite
+- SQLite (expo-sqlite)
+- Expo Camera
+- Expo Location
+- Expo FileSystem (`/legacy`, por compatibilidad con SDK 56)
 - TypeScript
 - Zustand (estado global, desde Sprint 2)
 
@@ -149,25 +152,89 @@ Los archivos del patrón anterior (`repositories/trabajadorRepository.ts`,
 - `infrastructure/repositories/SQLiteAsistenciaRepository.ts` — `guardar()` inserta el
   registro; mapea el booleano `sincronizado` del dominio al enum `EstadoSincronizacion`
   (0/1) que se guarda en la columna.
-- `application/useCases/RegistrarAsistenciaUseCase.ts` — ahora sí persiste (antes solo
-  hacía `console.log`): genera `id` (`generateId()`) y `fechaHora`, arma la entidad y
-  llama al repositorio.
-- `utils/tipoRegistro.ts` — traduce las etiquetas de movimiento en español que usa la UI
-  (`MOVEMENT_TYPES` de `lib/mock-data.ts`) al enum `TipoRegistro` del dominio.
+- `application/useCases/RegistrarAsistenciaUseCase.ts` — persiste (antes solo hacía
+  `console.log`): genera `id` (`generateId()`) y `fechaHora`, arma la entidad y llama al
+  repositorio.
+- `IAsistenciaRepository.obtenerPorProyecto(proyectoId?, limite?)` — lado de lectura,
+  devuelve `Asistencia[]` planas (sin nombres de trabajador/proyecto). Deliberadamente
+  **no** hace el join en SQL ni devuelve un DTO: el repositorio de dominio solo conoce
+  la entidad `Asistencia`, para no acoplarse a la forma que necesita una pantalla en
+  particular.
+- `application/dto/HistorialAsistenciaDTO.ts` + `application/useCases/ObtenerHistorialUseCase.ts`
+  — el use case sí conoce `IAsistenciaRepository`, `ITrabajadorRepository` e
+  `IProyectoRepository`, trae las tres listas (trabajadores/proyectos son tablas
+  pequeñas y locales) y arma el join en memoria, devolviendo el DTO ya listo para
+  mostrar (nombre de trabajador, nombre de proyecto, etc.). Si un `trabajador_id` o
+  `proyecto_id` no se encuentra, se degrada a "desconocido" en vez de fallar.
+- `utils/tipoRegistro.ts` — `mapMovementLabelToTipoRegistro` (UI → dominio) y su inverso
+  `mapTipoRegistroToLabel` (dominio → UI), para traducir entre las etiquetas en español
+  que usa la UI (`MOVEMENT_TYPES` de `lib/mock-data.ts`) y el enum `TipoRegistro`.
 
-### Estado real vs. pendiente en el flujo de Campo
+### Geolocalización
 
-`asistencia/confirmar.tsx` ya persiste un registro real en SQLite al presionar
-"Confirmar", usando `proyectoSeleccionado` (real, del `proyectoStore`) — pero el
-reconocimiento facial todavía no existe (Sprint 5), así que **el "trabajador
-identificado" es el primer trabajador activo de SQLite** (`trabajadorStore`), no una
-identificación real. De la misma forma, `fotoUri` es un placeholder
-(`"pending://captura-de-camara-no-integrada"`) y las coordenadas GPS son constantes fijas
-en el código: la integración de cámara (`CameraCapture.tsx`/`cameraService.ts`, ya
-implementados pero no conectados a ninguna pantalla) y de geolocalización real siguen
-pendientes. `asistencia/exito.tsx` muestra el mismo trabajador placeholder por
-consistencia. El modo Kiosco no persiste nada todavía (no tiene un proyecto asociado en
-este flujo — ver sección de UI más abajo).
+`infrastructure/location/locationService.ts` — `obtenerUbicacionActual()` con
+`expo-location`. Nunca lanza: si el permiso se niega, el GPS está apagado o falla por
+cualquier razón, devuelve `null` en vez de propagar el error, porque la app es
+offline-first y el registro de asistencia **no debe bloquearse** por falta de GPS
+(`Asistencia.latitud`/`longitud` son `number | null` justamente por esto).
+
+### Cámara y almacenamiento de archivos
+
+Reorganizados para seguir la estructura de capas objetivo:
+
+- `infrastructure/storage/fileService.ts` — `ensurePhotosDirectory()` (antes en
+  `services/fileService.ts`).
+- `infrastructure/camera/cameraService.ts` — `savePhoto()` (antes en
+  `services/cameraService.ts`), copia la foto temporal de `expo-camera` al directorio
+  permanente vía `infrastructure/storage`.
+- `src/services/cameraService.ts` y `src/services/fileService.ts` quedaron como shims
+  `@deprecated` (mismo motivo que `migrations.ts`/`seeds.ts`: el entorno no permite
+  borrar archivos).
+- `components/CameraCapture.tsx` — componente reutilizable de captura (permisos, visor,
+  botón de captura/repetir). No conoce trabajadores/asistencias/proyectos, solo expone
+  `onCaptured(photo)`; así lo puede usar cualquier pantalla que necesite tomar una foto
+  sin duplicar lógica de cámara.
+
+### Estado de un registro en curso: `store/registroAsistenciaStore.ts`
+
+El flujo de Campo son 4 pantallas separadas (`asistencia/index` → `asistencia/capturar`
+→ `asistencia/confirmar` → `asistencia/exito`), cada una un componente de ruta distinto
+en expo-router. Pasar el trabajador identificado, la foto y la ubicación GPS entre ellas
+por query params sería frágil y perdería tipado, así que viven en un store de Zustand
+dedicado (`trabajadorSeleccionado`, `fotoUri`, `ubicacion`) con una acción `registrar()`
+que llama a `RegistrarAsistenciaUseCase` y una `limpiar()` que se llama al cancelar o al
+volver a la pantalla de espera tras un registro exitoso.
+
+### Flujo real de Campo (completo)
+
+1. `asistencia/index.tsx` — identificación de trabajador: lista real desde
+   `trabajadorStore` (SQLite) con búsqueda por nombre/número de empleado. Selección
+   manual porque el reconocimiento facial es Sprint 5; el resto del flujo no debería
+   tener que cambiar cuando eso llegue.
+2. `asistencia/capturar.tsx` (ruta nueva) — cámara real (`CameraCapture`), guarda la
+   foto en `registroAsistenciaStore`.
+3. `asistencia/confirmar.tsx` — pide GPS real al entrar (best-effort, no bloquea si
+   falla), muestra trabajador/foto/proyecto reales y el selector de tipo de movimiento;
+   "Confirmar" llama a `registroAsistenciaStore.registrar()` (persiste en SQLite vía
+   `RegistrarAsistenciaUseCase`) y navega a éxito. "Cancelar" limpia el borrador.
+4. `asistencia/exito.tsx` — muestra el registro real guardado; al volver (botón o
+   auto-cierre) limpia el borrador y regresa a `/proyecto` (pantalla de espera).
+
+El modo Kiosco (`kiosco/*`) sigue siendo una simulación visual (detección aleatoria, sin
+persistir nada) — **decisión deliberada, no pendiente por descuido**: el roadmap ya
+asigna "Modo kiosco completamente automático" a Sprint 5 (reconocimiento facial), así
+que construir aquí una segunda copia manual del flujo de identificación solo para
+retirarla en un par de sprints no es buen uso del tiempo. Cuando llegue Sprint 5, Kiosco
+reutilizará las mismas piezas (`CameraCapture`, `locationService`,
+`RegistrarAsistenciaUseCase`) con detección automática en vez de selección manual.
+
+### Historial local
+
+`historial/index.tsx` usa `store/historialStore.ts` → `ObtenerHistorialUseCase`, filtrado
+por el proyecto activo (`proyectoStore.proyectoSeleccionado`). Cada fila muestra foto,
+trabajador, hora, tipo de movimiento y un estado "Sincronizado"/"Pendiente" derivado del
+booleano `sincronizado` (todavía no hay sincronización real — Sprint 4 — así que hoy
+todo queda "Pendiente" hasta que exista esa capa).
 
 ---
 
@@ -185,7 +252,8 @@ explícitamente en `mode-select.tsx`:
 - **Modo Campo** (tablet que se mueve entre obras): `mode-select` →
   `/proyecto/seleccionar` (selección obligatoria de proyecto, con datos reales desde
   SQLite vía `proyectoStore`) → al elegir uno, navega directo con `router.replace` a
-  `/asistencia` (cámara). Desde ahí, `/proyecto` (el hub de Campo) sigue existiendo
+  `/asistencia` (identificar trabajador — ver "Flujo real de Campo" más abajo para el
+  resto del pipeline). Desde ahí, `/proyecto` (el hub de Campo) sigue existiendo
   como pantalla "home" a la que se regresa tras confirmar/registrar, con accesos a
   "Registrar Asistencia" de nuevo, "Cambiar Proyecto" (vuelve a `/proyecto/seleccionar`),
   "Sincronizar" e "Historial local". Si se entra a `/proyecto` sin un proyecto activo en
@@ -220,33 +288,24 @@ implementadas con `Animated` de React Native en su lugar.
 
 ---
 
-## Cámara y archivos
-
-`src/components/CameraCapture.tsx` + `src/services/cameraService.ts` +
-`src/services/fileService.ts` ya capturan y guardan fotos localmente con
-`expo-file-system/legacy`. Todavía no está integrado en ninguna pantalla de `app/`
-(pendiente conectar cuando se implemente la pantalla real de captura).
-
----
-
 ## Roadmap
 
 ### Sprint 1 — Infraestructura base ✅
 - Proyecto Expo, SQLite, cámara, arquitectura inicial.
 
-### Sprint 2 — Proyectos y asistencia (en curso)
+### Sprint 2 — Proyectos y asistencia ✅
 - ✅ Migraciones versionadas + seeds reorganizados.
 - ✅ Módulo de Proyectos completo (dominio, infraestructura, use case, Zustand).
 - ✅ Flujo de navegación Kiosco/Campo definido y conectado a `proyectoStore` real.
 - ✅ Módulo de Trabajadores (dominio, infraestructura, use case, Zustand — solo lectura).
 - ✅ Registro de asistencia en SQLite (`RegistrarAsistenciaUseCase` +
   `SQLiteAsistenciaRepository` completos, migración `003_create_asistencias`).
-- ⬜ Identificación real de trabajador (reconocimiento facial es Sprint 5; mientras
-  tanto se usa un placeholder — ver "Módulo de Asistencias").
-- ⬜ Captura real de foto conectada a `asistencia/confirmar.tsx` (servicios ya existen,
-  falta integrarlos).
-- ⬜ GPS real.
-- ⬜ Historial local con datos reales.
+- ✅ Identificación de trabajador — selección manual real desde SQLite
+  (`asistencia/index.tsx`); reconocimiento facial automático sigue siendo Sprint 5.
+- ✅ Captura real de foto (`asistencia/capturar.tsx` + `CameraCapture` +
+  `infrastructure/camera`/`infrastructure/storage`).
+- ✅ GPS real (`infrastructure/location/locationService.ts`, best-effort).
+- ✅ Historial local con datos reales (`ObtenerHistorialUseCase` + `historialStore`).
 
 ### Sprint 3 — Administración
 - CRUD de trabajadores (migrar de `repositories/trabajadorRepository.ts` al patrón de

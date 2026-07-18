@@ -1,23 +1,8 @@
-import * as FileSystem from "expo-file-system/legacy";
-
-export async function ensurePhotosDirectory() {
-
-    const photosDir =
-        `${FileSystem.documentDirectory}photos`;
-
-    const info =
-        await FileSystem.getInfoAsync(photosDir);
-
-    if (!info.exists) {
-
-        await FileSystem.makeDirectoryAsync(
-            photosDir,
-            {
-                intermediates: true
-            }
-        );
-
-    }
-
-    return photosDir;
-}
+/**
+ * @deprecated Movido a `src/infrastructure/storage/fileService.ts` para
+ * seguir la estructura de capas del proyecto (infrastructure/storage/).
+ * Este archivo queda como shim de compatibilidad porque el entorno de
+ * desarrollo no permite borrar archivos; importa siempre desde la nueva
+ * ubicación en código nuevo.
+ */
+export { ensurePhotosDirectory } from "../infrastructure/storage/fileService";

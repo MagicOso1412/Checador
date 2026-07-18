@@ -36,7 +36,19 @@
           }
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "HKC Attendance necesita acceder a la cámara para capturar la fotografía de evidencia al registrar asistencia."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "HKC Attendance necesita tu ubicación para registrar dónde se realizó cada asistencia."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

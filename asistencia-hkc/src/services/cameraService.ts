@@ -1,26 +1,9 @@
-import * as FileSystem from "expo-file-system/legacy";
-import { ensurePhotosDirectory } from "./fileService";
-
-export async function savePhoto(
-    temporaryUri: string
-) {
-
-    const photosDir =
-        await ensurePhotosDirectory();
-
-    const fileName =
-        `photo_${Date.now()}.jpg`;
-
-    const destination =
-        `${photosDir}/${fileName}`;
-
-    await FileSystem.copyAsync({
-        from: temporaryUri,
-        to: destination,
-    });
-
-    return {
-        uri: destination,
-        fileName,
-    };
-}
+/**
+ * @deprecated Movido a `src/infrastructure/camera/cameraService.ts` para
+ * seguir la estructura de capas del proyecto (infrastructure/camera/).
+ * Este archivo queda como shim de compatibilidad porque el entorno de
+ * desarrollo no permite borrar archivos; importa siempre desde la nueva
+ * ubicación en código nuevo.
+ */
+export { savePhoto } from "../infrastructure/camera/cameraService";
+export type { SavedPhoto } from "../infrastructure/camera/cameraService";

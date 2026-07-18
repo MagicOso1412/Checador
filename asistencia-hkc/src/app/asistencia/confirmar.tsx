@@ -1,72 +1,87 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Calendar, Clock, Layers, Navigation, User } from "lucide-react-native";
+import { Calendar, Clock, Layers, Navigation } from "lucide-react-native";
 
 import { DetailRow, StatusPill } from "@/components/attendance/ui-rows";
 import { palette } from "@/constants/palette";
 import { shadowMd, shadowSm } from "@/constants/shadows";
 import { useAttendance } from "@/context/attendance-context";
+import { obtenerUbicacionActual } from "@/infrastructure/location/locationService";
 import { MOVEMENT_TYPES } from "@/lib/mock-data";
-import { RegistrarAsistenciaUseCase } from "@/application/useCases/RegistrarAsistenciaUseCase";
-import { SQLiteAsistenciaRepository } from "@/infrastructure/repositories/SQLiteAsistenciaRepository";
 import { useProyectoStore } from "@/store/proyectoStore";
-import { useTrabajadorStore } from "@/store/trabajadorStore";
+import { useRegistroAsistenciaStore } from "@/store/registroAsistenciaStore";
 import { mapMovementLabelToTipoRegistro } from "@/utils/tipoRegistro";
 
-const registrarAsistenciaUseCase = new RegistrarAsistenciaUseCase(new SQLiteAsistenciaRepository());
+function formatCoordenada(valor: number, positivo: string, negativo: string) {
+  return `${Math.abs(valor).toFixed(4)}° ${valor >= 0 ? positivo : negativo}`;
+}
 
-// El reconocimiento facial todavía no existe (Sprint 5). Mientras tanto, esta
-// pantalla usa el primer trabajador activo de SQLite como el "identificado",
-// y foto/GPS quedan como placeholders documentados: la captura real de
-// cámara y la geolocalización son módulos pendientes (ver ARCHITECTURE.md).
-const FOTO_URI_PENDIENTE = "pending://captura-de-camara-no-integrada";
-const GPS_PLACEHOLDER = { latitud: 25.6714, longitud: -100.3098 };
-
+/** Paso 3 del registro: revisar GPS + tipo de movimiento y confirmar (o cancelar). */
 export default function AttendanceConfirmScreen() {
   const { movementType, setMovementType } = useAttendance();
   const proyectoSeleccionado = useProyectoStore((state) => state.proyectoSeleccionado);
-  const { trabajadores, cargando, cargarTrabajadores } = useTrabajadorStore();
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const {
+    trabajadorSeleccionado,
+    fotoUri,
+    ubicacion,
+    ubicacionCargando,
+    registrando,
+    error,
+    setUbicacion,
+    registrar,
+    limpiar,
+  } = useRegistroAsistenciaStore();
   const now = new Date();
 
+  // Esta pantalla depende de los pasos anteriores del flujo (trabajador +
+  // foto). Si falta alguno (deep link directo, back navigation rara, etc.)
+  // no hay nada que confirmar.
   useEffect(() => {
-    cargarTrabajadores();
-  }, [cargarTrabajadores]);
+    if (!trabajadorSeleccionado || !fotoUri) {
+      router.replace("/asistencia");
+    }
+  }, [trabajadorSeleccionado, fotoUri]);
 
-  const trabajador = trabajadores[0] ?? null;
-  const puedeConfirmar = Boolean(trabajador && proyectoSeleccionado) && !submitting;
+  // GPS es best-effort: se pide una sola vez al entrar a confirmar. Si falla
+  // o se niega el permiso, `obtenerUbicacionActual` devuelve null y el
+  // registro sigue siendo posible (ver infrastructure/location/locationService.ts).
+  useEffect(() => {
+    let cancelled = false;
+    setUbicacion(null, true);
+    obtenerUbicacionActual().then((coords) => {
+      if (!cancelled) setUbicacion(coords, false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [setUbicacion]);
+
+  if (!trabajadorSeleccionado || !fotoUri) {
+    return <View className="flex-1 bg-background" />;
+  }
+
+  const puedeConfirmar = Boolean(proyectoSeleccionado) && !registrando;
+
+  const handleCancelar = () => {
+    limpiar();
+    router.replace("/proyecto");
+  };
 
   const handleConfirmar = async () => {
-    if (!trabajador || !proyectoSeleccionado) return;
-
-    setSubmitting(true);
-    setSubmitError(null);
+    if (!proyectoSeleccionado) return;
     try {
-      await registrarAsistenciaUseCase.execute({
-        trabajadorId: trabajador.id,
-        proyectoId: proyectoSeleccionado.id,
-        tipo: mapMovementLabelToTipoRegistro(movementType),
-        fotoUri: FOTO_URI_PENDIENTE,
-        latitud: GPS_PLACEHOLDER.latitud,
-        longitud: GPS_PLACEHOLDER.longitud,
-      });
+      await registrar(proyectoSeleccionado.id, mapMovementLabelToTipoRegistro(movementType));
       router.push("/asistencia/exito");
-    } catch (error) {
-      console.error("[asistencia/confirmar] error al registrar asistencia", error);
-      setSubmitError(
-        error instanceof Error ? error.message : "No se pudo registrar la asistencia",
-      );
-    } finally {
-      setSubmitting(false);
+    } catch {
+      // El error ya queda expuesto en el store (`error`) y se muestra abajo.
     }
   };
 
   return (
     <View className="flex-1 bg-background">
       <View className="bg-primary px-4 pb-5 pt-14">
-        <Pressable onPress={() => router.replace("/proyecto")} className="mb-3">
+        <Pressable onPress={handleCancelar} className="mb-3">
           <Text className="text-sm" style={{ color: palette.white70 }}>
             ← Cancelar
           </Text>
@@ -76,32 +91,23 @@ export default function AttendanceConfirmScreen() {
 
       <View className="flex-1 gap-4 p-4">
         <View className="flex-row items-center gap-4 rounded-2xl border border-border bg-card p-4" style={shadowSm}>
-          <View
-            className="h-16 w-16 items-center justify-center overflow-hidden rounded-xl"
-            style={{ backgroundColor: palette.primary10 }}
-          >
-            <User size={28} color={palette.primary} />
+          <View className="h-16 w-16 overflow-hidden rounded-xl bg-muted">
+            <Image source={{ uri: fotoUri }} style={{ width: "100%", height: "100%" }} />
           </View>
           <View className="flex-1">
-            {cargando ? (
-              <ActivityIndicator size="small" color={palette.primary} style={{ alignSelf: "flex-start" }} />
-            ) : trabajador ? (
-              <>
-                <Text className="font-semibold text-foreground">{trabajador.nombreCompleto}</Text>
-                <Text className="text-sm text-muted-foreground">{trabajador.numeroEmpleado}</Text>
-                <View className="mt-1 self-start">
-                  <StatusPill
-                    label="Identificado"
-                    bgClassName="bg-green-100"
-                    textClassName="text-green-700"
-                  />
-                </View>
-              </>
-            ) : (
-              <Text className="text-sm text-destructive">
-                No hay trabajadores activos registrados en el dispositivo.
-              </Text>
-            )}
+            <Text className="font-semibold text-foreground">
+              {trabajadorSeleccionado.nombreCompleto}
+            </Text>
+            <Text className="text-sm text-muted-foreground">
+              {trabajadorSeleccionado.numeroEmpleado}
+            </Text>
+            <View className="mt-1 self-start">
+              <StatusPill
+                label="Identificado"
+                bgClassName="bg-green-100"
+                textClassName="text-green-700"
+              />
+            </View>
           </View>
         </View>
 
@@ -132,7 +138,13 @@ export default function AttendanceConfirmScreen() {
           <DetailRow
             icon={<Navigation size={15} color={palette.mutedForeground} />}
             label="GPS"
-            value={`${GPS_PLACEHOLDER.latitud}° N, ${Math.abs(GPS_PLACEHOLDER.longitud)}° W`}
+            value={
+              ubicacionCargando
+                ? "Obteniendo…"
+                : ubicacion
+                  ? `${formatCoordenada(ubicacion.latitud, "N", "S")}, ${formatCoordenada(ubicacion.longitud, "E", "W")}`
+                  : "No disponible"
+            }
           />
         </View>
 
@@ -165,14 +177,12 @@ export default function AttendanceConfirmScreen() {
           </View>
         </View>
 
-        {submitError ? (
-          <Text className="text-center text-sm text-destructive">{submitError}</Text>
-        ) : null}
+        {error ? <Text className="text-center text-sm text-destructive">{error}</Text> : null}
       </View>
 
       <View className="flex-row gap-3 border-t border-border p-4">
         <Pressable
-          onPress={() => router.replace("/proyecto")}
+          onPress={handleCancelar}
           className="flex-1 items-center rounded-2xl border-2 border-border py-4"
           style={({ pressed }) => pressed && { opacity: 0.9 }}
         >
@@ -189,7 +199,7 @@ export default function AttendanceConfirmScreen() {
           ]}
         >
           <Text className="font-semibold text-primary-foreground">
-            {submitting ? "Guardando…" : "Confirmar"}
+            {registrando ? "Guardando…" : "Confirmar"}
           </Text>
         </Pressable>
       </View>

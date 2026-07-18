@@ -19,3 +19,15 @@ export function mapMovementLabelToTipoRegistro(
 ): TipoRegistro {
   return LABEL_TO_TIPO_REGISTRO[label];
 }
+
+const TIPO_REGISTRO_TO_LABEL: Record<TipoRegistro, (typeof MOVEMENT_TYPES)[number]> = {
+  [TipoRegistro.ENTRADA]: "Entrada",
+  [TipoRegistro.SALIDA]: "Salida",
+  [TipoRegistro.INICIO_COMIDA]: "Comida Inicio",
+  [TipoRegistro.FIN_COMIDA]: "Comida Fin",
+};
+
+/** Inverso de `mapMovementLabelToTipoRegistro`, para mostrar un `TipoRegistro` guardado en SQLite en la UI. */
+export function mapTipoRegistroToLabel(tipo: TipoRegistro): (typeof MOVEMENT_TYPES)[number] {
+  return TIPO_REGISTRO_TO_LABEL[tipo];
+}
