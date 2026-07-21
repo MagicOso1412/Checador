@@ -45,12 +45,14 @@ declare module "lucide-react-native" {
   export const MapPin: LucideIcon;
   export const Moon: LucideIcon;
   export const Navigation: LucideIcon;
+  export const Plus: LucideIcon;
   export const RefreshCw: LucideIcon;
   export const Scan: LucideIcon;
   export const Server: LucideIcon;
   export const Settings: LucideIcon;
   export const Shield: LucideIcon;
   export const Smartphone: LucideIcon;
+  export const Trash2: LucideIcon;
   export const UploadCloud: LucideIcon;
   export const User: LucideIcon;
   export const Users: LucideIcon;

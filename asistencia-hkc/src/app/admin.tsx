@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import {
   Building2,
   Camera,
+  ChevronRight,
   Clock,
   HardDrive,
   Info,
@@ -12,6 +13,7 @@ import {
   Server,
   Shield,
   Smartphone,
+  Users,
 } from "lucide-react-native";
 
 import { DetailRow } from "@/components/attendance/ui-rows";
@@ -103,6 +105,30 @@ export default function AdminScreen() {
             value="Hoy 14:32"
           />
         </View>
+
+        <Pressable
+          onPress={() => router.push("/trabajadores")}
+          className="flex-row items-center justify-between rounded-2xl border border-border bg-card px-5 py-4"
+          style={({ pressed }) => [shadowSm, pressed && { opacity: 0.9 }]}
+        >
+          <View className="flex-row items-center gap-3">
+            <Users size={20} color={palette.primary} />
+            <Text className="text-sm font-medium text-foreground">Gestionar trabajadores</Text>
+          </View>
+          <ChevronRight size={18} color={palette.mutedForeground} />
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push("/proyectos")}
+          className="flex-row items-center justify-between rounded-2xl border border-border bg-card px-5 py-4"
+          style={({ pressed }) => [shadowSm, pressed && { opacity: 0.9 }]}
+        >
+          <View className="flex-row items-center gap-3">
+            <Building2 size={20} color={palette.primary} />
+            <Text className="text-sm font-medium text-foreground">Gestionar proyectos</Text>
+          </View>
+          <ChevronRight size={18} color={palette.mutedForeground} />
+        </Pressable>
 
         <Pressable
           className="flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3.5"

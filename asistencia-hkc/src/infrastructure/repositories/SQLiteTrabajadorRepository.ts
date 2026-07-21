@@ -62,4 +62,60 @@ export class SQLiteTrabajadorRepository implements ITrabajadorRepository {
 
     return row ? toEntity(row) : null;
   }
+
+  async buscarPorId(id: string): Promise<Trabajador | null> {
+    const db = await getDatabase();
+
+    const row = await db.getFirstAsync<TrabajadorRow>(
+      `SELECT ${SELECT_COLUMNS} FROM trabajadores WHERE id = ? LIMIT 1`,
+      [id],
+    );
+
+    return row ? toEntity(row) : null;
+  }
+
+  async crear(trabajador: Trabajador): Promise<void> {
+    const db = await getDatabase();
+
+    await db.runAsync(
+      `
+      INSERT INTO trabajadores
+      (id, numero_empleado, nombre, apellido_paterno, apellido_materno, activo)
+      VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        trabajador.id,
+        trabajador.numeroEmpleado,
+        trabajador.nombre,
+        trabajador.apellidoPaterno,
+        trabajador.apellidoMaterno,
+        trabajador.activo ? 1 : 0,
+      ],
+    );
+  }
+
+  async actualizar(trabajador: Trabajador): Promise<void> {
+    const db = await getDatabase();
+
+    await db.runAsync(
+      `
+      UPDATE trabajadores
+      SET numero_empleado = ?, nombre = ?, apellido_paterno = ?, apellido_materno = ?, activo = ?
+      WHERE id = ?
+      `,
+      [
+        trabajador.numeroEmpleado,
+        trabajador.nombre,
+        trabajador.apellidoPaterno,
+        trabajador.apellidoMaterno,
+        trabajador.activo ? 1 : 0,
+        trabajador.id,
+      ],
+    );
+  }
+
+  async eliminar(id: string): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync("UPDATE trabajadores SET activo = 0 WHERE id = ?", [id]);
+  }
 }

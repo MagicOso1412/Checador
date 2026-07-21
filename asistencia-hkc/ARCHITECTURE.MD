@@ -108,16 +108,18 @@ y `seeds.ts`, y volver a usar el specifier corto normalmente.
 Primer módulo completo end-to-end siguiendo el patrón de capas:
 
 - `domain/entities/Proyecto.ts` — ya existía (`id`, `nombre`, `activo`).
-- `domain/repositories/IProyectoRepository.ts` — `obtenerTodos()` / `obtenerActivos()`.
+- `domain/repositories/IProyectoRepository.ts` — `obtenerTodos()` / `obtenerActivos()`
+  originalmente (ampliada en Sprint 3 con el CRUD completo, ver "Módulo de
+  administración de Proyectos" más abajo).
 - `infrastructure/repositories/SQLiteProyectoRepository.ts` — implementación con
   `expo-sqlite`, mapea `activo` (INTEGER 0/1) a `boolean`.
 - `application/useCases/ObtenerProyectosUseCase.ts` — devuelve solo los proyectos
   activos; es lo único que la UI debe llamar (indirectamente, vía el store).
 - `store/proyectoStore.ts` (Zustand) — estado global `proyectos`, `proyectoSeleccionado`,
-  `cargando`, `error`, y las acciones `cargarProyectos()` / `seleccionarProyecto()`.
-  Vive solo en memoria por ahora (no persiste entre reinicios de la app); si se necesita
-  que el dispositivo "recuerde" el proyecto entre reinicios, agregar el middleware
-  `persist` de Zustand con un adapter async, no reinventar esa lógica a mano.
+  `cargando`, `error`, y las acciones `cargarProyectos()` / `seleccionarProyecto()`. El
+  proyecto seleccionado se persiste en SQLite (`configuracion_dispositivo`) para Modo
+  Kiosco — ver "Kiosco vs. Campo: conectividad y proyecto asignado" más abajo para el
+  detalle completo.
 
 ## Módulo de Trabajadores (Sprint 2)
 
@@ -269,6 +271,80 @@ modo obtiene su proyecto:
   en cola como las de Campo — ese diseño todavía no está implementado, pero esta
   distinción de conectividad ya queda modelada a nivel de producto.
 
+## Módulo de administración de Trabajadores (Sprint 3)
+
+Primer CRUD real de la app (hasta ahora todo era solo lectura + seeds):
+
+- `domain/repositories/ITrabajadorRepository.ts` — se agregaron `crear()`, `actualizar()`,
+  `eliminar()` y `buscarPorId()` a los métodos de solo lectura que ya existían.
+  `eliminar()` es **baja lógica** (`activo = false`), nunca `DELETE`: un trabajador puede
+  tener asistencias históricas (`asistencias.trabajador_id`) que deben conservarse, y
+  además la FK (`PRAGMA foreign_keys = ON`) rechazaría el `DELETE` si ya tiene registros.
+- `infrastructure/repositories/SQLiteTrabajadorRepository.ts` — implementa los métodos
+  nuevos.
+- Migración `005_add_unique_numero_empleado.ts` — índice `UNIQUE` sobre
+  `trabajadores.numero_empleado` a nivel de base de datos, además de la validación de
+  aplicación. La migración 001 original no lo tenía y no se puede modificar, así que se
+  agregó como migración nueva (regla del proyecto: nunca tocar una migración publicada).
+- Use cases: `CrearTrabajadorUseCase` y `ActualizarTrabajadorUseCase` validan con el
+  value object `NumeroEmpleado` y verifican unicidad contra el repositorio antes de
+  guardar (la validación de negocio vive aquí, no en la UI ni en el repositorio).
+  `EliminarTrabajadorUseCase` (baja lógica), `ObtenerTrabajadorPorIdUseCase` y
+  `ListarTodosLosTrabajadoresUseCase` (activos + inactivos, para el admin — distinto de
+  `ObtenerTrabajadoresUseCase`, que sigue siendo solo activos para el flujo de
+  identificación de asistencia) completan el módulo.
+- `store/trabajadoresAdminStore.ts` — store separado de `store/trabajadorStore.ts` a
+  propósito: son responsabilidades distintas (uno es "leer activos para identificar a
+  alguien en una asistencia", el otro es "CRUD completo para administración") aunque
+  ambos lean la misma tabla; mezclarlos en un solo store hubiera acoplado dos pantallas
+  sin relación entre sí.
+- UI: `app/trabajadores/index.tsx` (lista con búsqueda, estado activo/inactivo, botón
+  "+") y `app/trabajadores/form.tsx` (un solo formulario para alta y edición, según si
+  la ruta trae `id`; incluye alternar activo/inactivo y dar de baja con confirmación
+  nativa `Alert.alert`). Enlazadas desde `admin.tsx` ("Gestionar trabajadores"). Se
+  pusieron como rutas de nivel superior (`app/trabajadores/`, no `app/admin/trabajadores/`)
+  para no repetir el problema de colisión archivo/carpeta ya documentado con
+  `migrations.ts`/`seeds.ts` (`admin.tsx` ya existe como archivo suelto, así que una
+  carpeta `admin/` con el mismo nombre sería otra colisión evitable).
+
+## Módulo de administración de Proyectos (Sprint 3)
+
+Mismo patrón que el CRUD de Trabajadores (ver sección anterior), aplicado a `Proyecto`:
+
+- `domain/repositories/IProyectoRepository.ts` — se agregaron `crear()`, `actualizar()`,
+  `eliminar()` y `buscarPorId()`/`buscarPorNombre()` a los métodos de solo lectura que ya
+  existían desde Sprint 2 (`obtenerTodos()`/`obtenerActivos()`). `eliminar()` es **baja
+  lógica** (`activo = false`), nunca `DELETE`, por el mismo motivo que
+  `ITrabajadorRepository.eliminar()`: un proyecto puede tener asistencias asociadas
+  (`asistencias.proyecto_id`) que deben conservarse, y la FK (`PRAGMA foreign_keys = ON`)
+  rechazaría el `DELETE` si ya tiene registros.
+- `infrastructure/repositories/SQLiteProyectoRepository.ts` — implementa los métodos
+  nuevos.
+- Migración `006_add_unique_proyecto_nombre.ts` — índice `UNIQUE` sobre
+  `proyectos.nombre` a nivel de base de datos, además de la validación de aplicación
+  (mismo motivo que la migración 005 para `numero_empleado`: la migración 002 original no
+  lo tenía y no se puede modificar).
+- Use cases: `CrearProyectoUseCase` y `ActualizarProyectoUseCase` validan que `nombre` no
+  esté vacío y verifican unicidad contra el repositorio antes de guardar. A diferencia de
+  Trabajador, Proyecto no tiene un Value Object dedicado (su única regla es "nombre no
+  vacío"), así que la validación vive inline en el use case, igual que se validaba
+  `nombre`/`apellidoPaterno` en Trabajador antes de introducir `NumeroEmpleado`.
+  `EliminarProyectoUseCase` (baja lógica), `ObtenerProyectoPorIdUseCase` y
+  `ListarTodosLosProyectosUseCase` (activos + inactivos, para el admin — distinto de
+  `ObtenerProyectosUseCase`, que sigue siendo solo activos para la selección de proyecto
+  en Campo/Kiosco) completan el módulo.
+- `store/proyectosAdminStore.ts` — store separado de `store/proyectoStore.ts` a
+  propósito, mismo motivo que `trabajadoresAdminStore` vs. `trabajadorStore`: uno es
+  "leer/seleccionar el proyecto activo del dispositivo" (con persistencia en
+  `configuracion_dispositivo`), el otro es "CRUD completo para administración".
+- UI: `app/proyectos/index.tsx` (lista con búsqueda, estado activo/inactivo, botón "+") y
+  `app/proyectos/form.tsx` (un solo formulario para alta y edición, según si la ruta trae
+  `id`; incluye alternar activo/inactivo y dar de baja con confirmación nativa
+  `Alert.alert`). Enlazadas desde `admin.tsx` ("Gestionar proyectos"). Rutas de nivel
+  superior (`app/proyectos/`, plural) para no chocar con la carpeta singular ya existente
+  `app/proyecto/` (selección de proyecto activo en Campo/Kiosco) — mismo motivo que
+  `trabajadores/` (plural) vs. el flujo de identificación de asistencia.
+
 ### Historial local
 
 `historial/index.tsx` usa `store/historialStore.ts` → `ObtenerHistorialUseCase`, filtrado
@@ -332,6 +408,50 @@ valores se aplican siempre vía `style`, usando `src/constants/palette.ts` y
 `src/components/attendance/pulse.tsx` para animaciones tipo `animate-ping`/`animate-pulse`
 implementadas con `Animated` de React Native en su lugar.
 
+### Soporte Web
+
+La app usa Expo Router con `bundler: "metro"` para web (no webpack), así que además de
+Android/iOS también corre en navegador con `npx expo start --web` / `npx expo export -p web`.
+
+`expo-sqlite` en web usa `wa-sqlite` (SQLite compilado a WebAssembly) en vez del binding
+nativo. Esto requiere dos cosas que Metro no trae configuradas por defecto (y sin ellas
+falla con `Unable to resolve module ./wa-sqlite/wa-sqlite.wasm`):
+
+- `metro.config.js` agrega `"wasm"` a `resolver.assetExts`, para que Metro sepa
+  empaquetar el archivo `.wasm` como asset en vez de intentar parsearlo como JS.
+- El servidor de desarrollo de Metro agrega las cabeceras `Cross-Origin-Embedder-Policy:
+  credentialless` y `Cross-Origin-Opener-Policy: same-origin` (necesarias para que el
+  navegador permita `SharedArrayBuffer`, que `wa-sqlite` usa internamente). Para cuando
+  la build de producción se despliegue a un hosting real (fuera de EAS Hosting), esas
+  mismas cabeceras hay que configurarlas en el servidor — EAS Hosting ya las toma solas
+  desde el plugin `expo-router` en `app.json` (`headers` en su configuración).
+
+Ver el soporte web de `expo-sqlite` como **alpha** (lo marca así la documentación
+oficial de Expo): funcional para desarrollo/demo, pero vale la pena probar bien antes de
+depender de él en producción.
+
+**Importante — no todos los módulos nativos se comportan igual en web:**
+`expo-camera` y `expo-location` sí tienen implementación web (permiso del navegador para
+cámara/ubicación), pero con más limitaciones que en nativo (por ejemplo, sin control
+fino de cámara frontal/trasera en todos los navegadores).
+
+`expo-file-system/legacy` (`documentDirectory`, `getInfoAsync`, `makeDirectoryAsync`,
+`copyAsync`) **no existe en web** — no hay un filesystem real ahí, así que llamarlo
+lanza `is not available on web`. `infrastructure/camera/cameraService.ts` lo resuelve
+con una rama por plataforma (`Platform.OS === "web"`): en web se salta por completo el
+paso de "copiar a almacenamiento permanente", porque no hace falta — en web,
+`CameraView.takePictureAsync()` ya devuelve una `data:` URI autocontenida (usa
+`canvas.toDataURL()` internamente, ver `expo-camera/src/web/WebCameraUtils.ts`), lista
+para usarse directamente como `uri` de un `<Image>`. `infrastructure/storage/fileService.ts`
+(`ensurePhotosDirectory`) queda con un guard defensivo que lanza un error explícito si
+se llama en web, en vez de fallar con el error críptico de `expo-file-system`.
+
+**Nota:** esto significa que en web las fotos de evidencia solo viven en memoria del
+navegador durante esa sesión (no persisten entre recargas de página, a diferencia de
+Android/iOS donde sí quedan guardadas en el filesystem del dispositivo) — coherente con
+tratar el soporte web como una vía de desarrollo/demo por ahora, no como plataforma de
+producción con paridad completa.
+
 ---
 
 ## Roadmap
@@ -358,9 +478,15 @@ implementadas con `Animated` de React Native en su lugar.
   antes); la identificación manual se pide después de la foto, a modo de confirmación.
   Solo queda automatizar ese paso con reconocimiento facial real — eso es Sprint 5.
 
-### Sprint 3 — Administración
-- CRUD de trabajadores (migrar de `repositories/trabajadorRepository.ts` al patrón de
-  capas), CRUD de proyectos, configuración, exportación, dashboard local.
+### Sprint 3 — Administración (en curso)
+- ✅ CRUD de trabajadores (alta, edición, baja lógica, índice único de número de
+  empleado) — ver "Módulo de administración de Trabajadores" más arriba.
+- ✅ CRUD de proyectos (alta, edición, baja lógica, índice único de nombre) — ver
+  "Módulo de administración de Proyectos" más arriba.
+- ⬜ Configuración conectada a datos reales (`admin.tsx`/`configuracion/index.tsx` hoy
+  muestran varios valores de ejemplo: nombre de dispositivo, versión, servidor,
+  almacenamiento).
+- ⬜ Exportación de asistencias, dashboard local.
 
 ### Sprint 4 — Sincronización
 - API REST, resolución de conflictos, estado de sincronización, reintentos automáticos.
