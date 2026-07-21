@@ -345,6 +345,36 @@ Mismo patrón que el CRUD de Trabajadores (ver sección anterior), aplicado a `P
   `app/proyecto/` (selección de proyecto activo en Campo/Kiosco) — mismo motivo que
   `trabajadores/` (plural) vs. el flujo de identificación de asistencia.
 
+## Configuración conectada a datos reales (Sprint 3)
+
+`admin.tsx` y `configuracion/index.tsx` mostraban valores de ejemplo escritos a mano
+("Dispositivo-07", "v1.0.0", "api.hkc-asistencia.mx", "2.1 GB / 16 GB", "Hoy 14:32") y las
+preferencias de `configuracion/index.tsx` vivían en `useState` local, así que se perdían
+en cada reinicio de la app. Se resolvió así:
+
+- `infrastructure/device/deviceInfo.ts` — `obtenerNombreDispositivo()` (`expo-device`,
+  ya era dependencia del proyecto) y `obtenerVersionApp()` (`expo-constants`, lee
+  `expoConfig.version`, la misma fuente que `app.json`). Reemplazan el nombre de
+  dispositivo y la versión hardcodeados.
+- `infrastructure/camera/cameraService.ts` y `infrastructure/location/locationService.ts`
+  — se agregó `verificarPermisoCamara()`/`verificarPermisoUbicacion()`, que **consultan**
+  el estado del permiso sin pedirlo (a diferencia de `useCameraPermissions()` de
+  `CameraCapture.tsx` y `obtenerUbicacionActual()`, que sí lo solicitan). `admin.tsx` los
+  usa para mostrar el estado real de GPS/Cámara en vez de un "Activo ✓" fijo.
+- `store/configuracionStore.ts` (Zustand) — persiste en `configuracion_dispositivo`
+  (SQLite, mismo mecanismo que `proyectoStore` para el proyecto asignado en Kiosco):
+  modo oscuro, idioma, servidor, frecuencia de sync, calidad de imágenes y alertas de
+  sync. `configuracion/index.tsx` ahora lee/escribe de este store en vez de `useState`
+  local — las preferencias sobreviven un reinicio.
+- **Nota sobre honestidad de los datos:** "Servidor" y "Frecuencia de sync" son
+  preferencias reales que sí se guardan, pero todavía no tienen efecto porque la
+  sincronización (Sprint 4) no existe — la UI lo indica explícitamente ("Conexión (Sprint
+  4 — sincronización aún no implementada)"). "Almacenamiento" y "Última sync" en
+  `admin.tsx` no tienen todavía una fuente de datos real (no hay API de espacio en disco
+  multiplataforma confiable, ni sincronización que registre una fecha), así que se
+  muestran como "No disponible"/"Pendiente (Sprint 4)" en vez de inventar un número —
+  coherente con el principio del proyecto de no fingir soluciones que no existen.
+
 ### Historial local
 
 `historial/index.tsx` usa `store/historialStore.ts` → `ObtenerHistorialUseCase`, filtrado
@@ -352,6 +382,47 @@ por el proyecto activo (`proyectoStore.proyectoSeleccionado`). Cada fila muestra
 trabajador, hora, tipo de movimiento y un estado "Sincronizado"/"Pendiente" derivado del
 booleano `sincronizado` (todavía no hay sincronización real — Sprint 4 — así que hoy
 todo queda "Pendiente" hasta que exista esa capa).
+
+### Dashboard local (resumen del historial)
+
+Tira de chips sobre la lista de `historial/index.tsx` (Total, Sincronizados, Pendientes,
+y un contador por cada tipo de movimiento) calculada con un `useMemo` a partir de
+`registros`, el mismo arreglo que ya carga `historialStore` para la lista — no agrega una
+consulta ni un use case nuevo porque es una agregación de UI sobre datos ya en memoria,
+no una regla de negocio. Si el volumen de registros locales creciera lo suficiente para
+que este cálculo en memoria fuera un problema de rendimiento, ese sería el momento de
+mover el conteo a una consulta SQL agregada (`COUNT`/`GROUP BY`) en el repositorio — no
+antes, para no adelantar complejidad que hoy no hace falta.
+
+### Exportación de asistencias a CSV
+
+- `application/services/historialCsv.ts` — `generarCsvHistorial()`, función pura que
+  transforma `HistorialAsistenciaDTO[]` a texto CSV (RFC 4180, con escape de comillas).
+  Vive en `application/` porque opera sobre el DTO de esa capa, no sobre la entidad de
+  dominio ni sobre nada de filesystem.
+- `application/useCases/ExportarHistorialUseCase.ts` — compone `ObtenerHistorialUseCase`
+  (misma fuente que ve la pantalla, join trabajador/proyecto ya resuelto) con
+  `generarCsvHistorial()`. Un use case que depende de otro use case es válido aquí: evita
+  duplicar la lógica de join, y ambos son orquestación de la capa `application/`.
+- `infrastructure/export/exportService.ts` — `guardarCsv()`, con rama por plataforma:
+  - Nativo: escribe el archivo en `documentDirectory/exports/` (nueva carpeta, mismo
+    patrón que `photos/`; ver `ensureExportsDirectory()` en
+    `infrastructure/storage/fileService.ts`) usando `expo-file-system/legacy`, ya
+    dependencia funcionando del proyecto.
+  - Web: dispara una descarga real de navegador (`Blob` + link temporal), sin
+    filesystem — mismo criterio que `cameraService.ts` en web.
+
+  **Decisión explícita: no se usó `expo-sharing`.** Hubiera permitido un share sheet
+  nativo (WhatsApp, correo, etc.) en vez de solo guardar el archivo, pero es un módulo
+  nativo nuevo — y agregar uno sin poder reconstruir el dev client en este entorno ya
+  causó el crash de AsyncStorage documentado en "Kiosco vs. Campo: conectividad y
+  proyecto asignado". Se prefirió no repetir ese riesgo: por ahora el CSV solo se guarda
+  localmente (nativo) o se descarga (web), y el share sheet queda como mejora futura para
+  cuando se pueda reconstruir el dev client con `expo-sharing` enlazado.
+- `store/historialStore.ts` — se agregaron `exportando`/`errorExportacion` y la acción
+  `exportarCsv(proyectoId?)`, que respeta el mismo filtro de proyecto que ya usa
+  `cargarHistorial`. La pantalla (`historial/index.tsx`) muestra el resultado
+  (`guardadoEn`) o el error con `Alert.alert`.
 
 ---
 
@@ -478,15 +549,18 @@ producción con paridad completa.
   antes); la identificación manual se pide después de la foto, a modo de confirmación.
   Solo queda automatizar ese paso con reconocimiento facial real — eso es Sprint 5.
 
-### Sprint 3 — Administración (en curso)
+### Sprint 3 — Administración ✅
 - ✅ CRUD de trabajadores (alta, edición, baja lógica, índice único de número de
   empleado) — ver "Módulo de administración de Trabajadores" más arriba.
 - ✅ CRUD de proyectos (alta, edición, baja lógica, índice único de nombre) — ver
   "Módulo de administración de Proyectos" más arriba.
-- ⬜ Configuración conectada a datos reales (`admin.tsx`/`configuracion/index.tsx` hoy
-  muestran varios valores de ejemplo: nombre de dispositivo, versión, servidor,
-  almacenamiento).
-- ⬜ Exportación de asistencias, dashboard local.
+- ✅ Configuración conectada a datos reales (nombre/versión de dispositivo, estado real
+  de permisos de GPS/Cámara, preferencias persistidas en SQLite) — ver "Configuración
+  conectada a datos reales" más arriba.
+- ✅ Exportación de asistencias a CSV (nativo: guarda en `documentDirectory/exports/`;
+  web: descarga de navegador) — ver "Exportación de asistencias a CSV" más arriba.
+- ✅ Dashboard local — resumen (total, sincronizados/pendientes, por tipo de movimiento)
+  sobre el historial — ver "Dashboard local" más arriba.
 
 ### Sprint 4 — Sincronización
 - API REST, resolución de conflictos, estado de sincronización, reintentos automáticos.

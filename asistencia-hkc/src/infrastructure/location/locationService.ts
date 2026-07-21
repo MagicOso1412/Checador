@@ -13,6 +13,22 @@ export interface Coordenadas {
  * disponible") sin impedir el registro. `Asistencia.latitud`/`longitud` son
  * `number | null` precisamente por esto.
  */
+/**
+ * Consulta si el permiso de ubicación ya está concedido, sin pedirlo (a
+ * diferencia de `obtenerUbicacionActual()`, que sí lo solicita). Pensado
+ * para pantallas de estado/diagnóstico (`admin.tsx`) que solo necesitan
+ * mostrar si el GPS está disponible, no leer una posición.
+ */
+export async function verificarPermisoUbicacion(): Promise<boolean> {
+  try {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    return status === Location.PermissionStatus.GRANTED;
+  } catch (error) {
+    console.warn("[locationService] no se pudo verificar el permiso de ubicación", error);
+    return false;
+  }
+}
+
 export async function obtenerUbicacionActual(): Promise<Coordenadas | null> {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();

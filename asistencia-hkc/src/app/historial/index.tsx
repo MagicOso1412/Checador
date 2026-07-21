@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, Text, TextInput, View } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { Download } from "lucide-react-native";
 
 import { ScreenHeader } from "@/components/attendance/screen-header";
 import { StatusPill } from "@/components/attendance/ui-rows";
@@ -13,7 +14,7 @@ import { mapTipoRegistroToLabel } from "@/utils/tipoRegistro";
 
 export default function HistoryScreen() {
   const proyectoSeleccionado = useProyectoStore((state) => state.proyectoSeleccionado);
-  const { registros, cargando, error, cargarHistorial } = useHistorialStore();
+  const { registros, cargando, error, cargarHistorial, exportando, exportarCsv } = useHistorialStore();
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -26,6 +27,36 @@ export default function HistoryScreen() {
     [registros, search],
   );
 
+  const resumen = useMemo(() => {
+    const sincronizados = registros.filter((r) => r.sincronizado).length;
+    const porTipo = new Map<string, number>();
+    for (const r of registros) {
+      const label = mapTipoRegistroToLabel(r.tipoRegistro);
+      porTipo.set(label, (porTipo.get(label) ?? 0) + 1);
+    }
+    return {
+      total: registros.length,
+      sincronizados,
+      pendientes: registros.length - sincronizados,
+      porTipo: Array.from(porTipo.entries()),
+    };
+  }, [registros]);
+
+  const handleExportar = async () => {
+    try {
+      const { guardadoEn, totalRegistros } = await exportarCsv(proyectoSeleccionado?.id);
+      Alert.alert(
+        "Exportación lista",
+        `${totalRegistros} registro(s) exportados.\n${guardadoEn}`,
+      );
+    } catch (err) {
+      Alert.alert(
+        "No se pudo exportar",
+        err instanceof Error ? err.message : "Error desconocido al exportar el historial",
+      );
+    }
+  };
+
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader
@@ -37,7 +68,37 @@ export default function HistoryScreen() {
         }
         onBack={() => router.back()}
         className="bg-primary pb-4"
+        right={
+          <Pressable
+            onPress={handleExportar}
+            disabled={exportando || registros.length === 0}
+            className="h-9 w-9 items-center justify-center rounded-full"
+            style={{ backgroundColor: palette.white10, opacity: exportando || registros.length === 0 ? 0.5 : 1 }}
+          >
+            {exportando ? (
+              <ActivityIndicator size="small" color={palette.white} />
+            ) : (
+              <Download size={18} color={palette.white} />
+            )}
+          </Pressable>
+        }
       />
+
+      {registros.length > 0 ? (
+        <View className="gap-2 border-b border-border bg-background px-4 py-3">
+          <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Resumen
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            <ResumenChip label="Total" valor={resumen.total} />
+            <ResumenChip label="Sincronizados" valor={resumen.sincronizados} />
+            <ResumenChip label="Pendientes" valor={resumen.pendientes} />
+            {resumen.porTipo.map(([label, valor]) => (
+              <ResumenChip key={label} label={label} valor={valor} />
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       <View className="border-b border-border px-4 py-3">
         <TextInput
@@ -109,6 +170,16 @@ export default function HistoryScreen() {
           }}
         />
       )}
+    </View>
+  );
+}
+
+function ResumenChip({ label, valor }: { label: string; valor: number }) {
+  return (
+    <View className="rounded-full border border-border bg-card px-3 py-1.5">
+      <Text className="text-xs font-medium text-foreground">
+        {label}: <Text className="font-semibold text-primary">{valor}</Text>
+      </Text>
     </View>
   );
 }

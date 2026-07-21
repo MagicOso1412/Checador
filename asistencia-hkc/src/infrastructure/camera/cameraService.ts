@@ -1,11 +1,28 @@
 import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
+import { Camera } from "expo-camera";
 
 import { ensurePhotosDirectory } from "../storage/fileService";
 
 export interface SavedPhoto {
   uri: string;
   fileName: string;
+}
+
+/**
+ * Consulta si el permiso de cámara ya está concedido, sin pedirlo (a
+ * diferencia de `useCameraPermissions()` de `CameraCapture.tsx`, que sí lo
+ * solicita). Pensado para pantallas de estado/diagnóstico (`admin.tsx`) que
+ * solo necesitan mostrar si la cámara está disponible, no abrirla.
+ */
+export async function verificarPermisoCamara(): Promise<boolean> {
+  try {
+    const { status } = await Camera.getCameraPermissionsAsync();
+    return status === "granted";
+  } catch (error) {
+    console.warn("[cameraService] no se pudo verificar el permiso de cámara", error);
+    return false;
+  }
 }
 
 /**

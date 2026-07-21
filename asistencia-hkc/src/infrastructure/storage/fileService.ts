@@ -21,13 +21,31 @@ export async function ensurePhotosDirectory(): Promise<string> {
     throw new Error("ensurePhotosDirectory no está disponible en web (no hay filesystem real)");
   }
 
-  const photosDir = `${FileSystem.documentDirectory}photos`;
+  return ensureDirectory("photos");
+}
 
-  const info = await FileSystem.getInfoAsync(photosDir);
-
-  if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(photosDir, { intermediates: true });
+/**
+ * Directorio para archivos exportados (CSV de historial, por ahora). Mismo
+ * criterio que `ensurePhotosDirectory`: solo tiene sentido en nativo, en web
+ * `infrastructure/export/exportService.ts` usa una descarga de navegador en
+ * su lugar (no hay filesystem real que "abrir" después).
+ */
+export async function ensureExportsDirectory(): Promise<string> {
+  if (Platform.OS === "web") {
+    throw new Error("ensureExportsDirectory no está disponible en web (no hay filesystem real)");
   }
 
-  return photosDir;
+  return ensureDirectory("exports");
+}
+
+async function ensureDirectory(name: string): Promise<string> {
+  const dir = `${FileSystem.documentDirectory}${name}`;
+
+  const info = await FileSystem.getInfoAsync(dir);
+
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+  }
+
+  return dir;
 }

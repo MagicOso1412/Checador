@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect } from "react";
 import { Pressable, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Bell, Globe, Image as ImageIcon, Moon, RefreshCw, Server } from "lucide-react-native";
@@ -7,14 +7,29 @@ import { Bell, Globe, Image as ImageIcon, Moon, RefreshCw, Server } from "lucide
 import { ScreenHeader } from "@/components/attendance/screen-header";
 import { palette } from "@/constants/palette";
 import { shadowSm } from "@/constants/shadows";
+import { obtenerVersionApp } from "@/infrastructure/device/deviceInfo";
+import { useConfiguracionStore } from "@/store/configuracionStore";
 
 export default function SettingsScreen() {
-  const [darkMode, setDarkMode] = useState(false);
-  const [syncAlerts, setSyncAlerts] = useState(true);
-  const [language, setLanguage] = useState("Español");
-  const [server, setServer] = useState("Producción");
-  const [syncFreq, setSyncFreq] = useState("15min");
-  const [imgQuality, setImgQuality] = useState("Alta");
+  const {
+    modoOscuro,
+    idioma,
+    servidor,
+    frecuenciaSync,
+    calidadImagenes,
+    alertasSync,
+    cargarConfiguracion,
+    setModoOscuro,
+    setIdioma,
+    setServidor,
+    setFrecuenciaSync,
+    setCalidadImagenes,
+    setAlertasSync,
+  } = useConfiguracionStore();
+
+  useEffect(() => {
+    cargarConfiguracion();
+  }, [cargarConfiguracion]);
 
   return (
     <View className="flex-1 bg-background">
@@ -25,32 +40,32 @@ export default function SettingsScreen() {
           <SettingsToggle
             icon={<Moon size={16} color={palette.mutedForeground} />}
             label="Modo oscuro"
-            value={darkMode}
-            onChange={setDarkMode}
+            value={modoOscuro}
+            onChange={setModoOscuro}
           />
           <SettingsSelect
             icon={<Globe size={16} color={palette.mutedForeground} />}
             label="Idioma"
-            value={language}
+            value={idioma}
             options={["Español", "English"]}
-            onChange={setLanguage}
+            onChange={setIdioma}
           />
         </SettingsGroup>
 
-        <SettingsGroup title="Conexión">
+        <SettingsGroup title="Conexión (Sprint 4 — sincronización aún no implementada)">
           <SettingsSelect
             icon={<Server size={16} color={palette.mutedForeground} />}
             label="Servidor"
-            value={server}
+            value={servidor}
             options={["Producción", "Staging", "Personalizado"]}
-            onChange={setServer}
+            onChange={setServidor}
           />
           <SettingsSelect
             icon={<RefreshCw size={16} color={palette.mutedForeground} />}
             label="Frecuencia de sync"
-            value={syncFreq}
+            value={frecuenciaSync}
             options={["5min", "15min", "30min", "Manual"]}
-            onChange={setSyncFreq}
+            onChange={setFrecuenciaSync}
           />
         </SettingsGroup>
 
@@ -58,9 +73,9 @@ export default function SettingsScreen() {
           <SettingsSelect
             icon={<ImageIcon size={16} color={palette.mutedForeground} />}
             label="Calidad de imágenes"
-            value={imgQuality}
+            value={calidadImagenes}
             options={["Baja", "Media", "Alta"]}
-            onChange={setImgQuality}
+            onChange={setCalidadImagenes}
           />
         </SettingsGroup>
 
@@ -68,13 +83,13 @@ export default function SettingsScreen() {
           <SettingsToggle
             icon={<Bell size={16} color={palette.mutedForeground} />}
             label="Alertas de sincronización"
-            value={syncAlerts}
-            onChange={setSyncAlerts}
+            value={alertasSync}
+            onChange={setAlertasSync}
           />
         </SettingsGroup>
 
         <View className="items-center rounded-2xl border border-border bg-card p-4">
-          <Text className="text-xs text-muted-foreground">HKC Asistencia v1.0.0</Text>
+          <Text className="text-xs text-muted-foreground">HKC Asistencia v{obtenerVersionApp()}</Text>
           <Text className="mt-0.5 text-xs text-muted-foreground">
             © 2026 HKC Asistencia · Todos los derechos reservados
           </Text>

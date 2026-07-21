@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import {
@@ -20,11 +21,29 @@ import { DetailRow } from "@/components/attendance/ui-rows";
 import { palette } from "@/constants/palette";
 import { shadowSm } from "@/constants/shadows";
 import { useAttendance } from "@/context/attendance-context";
+import { verificarPermisoCamara } from "@/infrastructure/camera/cameraService";
+import { obtenerNombreDispositivo, obtenerVersionApp } from "@/infrastructure/device/deviceInfo";
+import { verificarPermisoUbicacion } from "@/infrastructure/location/locationService";
+import { useConfiguracionStore } from "@/store/configuracionStore";
 import { useProyectoStore } from "@/store/proyectoStore";
+
+/** `null` = todavía verificando. */
+type EstadoPermiso = boolean | null;
 
 export default function AdminScreen() {
   const { operationMode } = useAttendance();
   const proyectoSeleccionado = useProyectoStore((state) => state.proyectoSeleccionado);
+  const servidor = useConfiguracionStore((state) => state.servidor);
+  const cargarConfiguracion = useConfiguracionStore((state) => state.cargarConfiguracion);
+
+  const [gpsDisponible, setGpsDisponible] = useState<EstadoPermiso>(null);
+  const [camaraDisponible, setCamaraDisponible] = useState<EstadoPermiso>(null);
+
+  useEffect(() => {
+    cargarConfiguracion();
+    verificarPermisoUbicacion().then(setGpsDisponible);
+    verificarPermisoCamara().then(setCamaraDisponible);
+  }, [cargarConfiguracion]);
 
   return (
     <View className="flex-1 bg-background">
@@ -54,12 +73,12 @@ export default function AdminScreen() {
           <DetailRow
             icon={<Smartphone size={15} color={palette.mutedForeground} />}
             label="Nombre"
-            value="Dispositivo-07"
+            value={obtenerNombreDispositivo()}
           />
           <DetailRow
             icon={<Info size={15} color={palette.mutedForeground} />}
             label="Versión"
-            value="v1.0.0"
+            value={`v${obtenerVersionApp()}`}
           />
           <DetailRow
             icon={<Shield size={15} color={palette.mutedForeground} />}
@@ -80,29 +99,35 @@ export default function AdminScreen() {
           <DetailRow
             icon={<Server size={15} color={palette.mutedForeground} />}
             label="Servidor"
-            value="api.hkc-asistencia.mx"
+            value={servidor}
           />
           <DetailRow
             icon={<Navigation size={15} color={palette.mutedForeground} />}
             label="GPS"
-            value="Activo ✓"
-            valueClassName="text-sm font-medium text-green-600"
+            value={gpsDisponible === null ? "Verificando…" : gpsDisponible ? "Permiso concedido ✓" : "Sin permiso"}
+            valueClassName={`text-sm font-medium ${
+              gpsDisponible ? "text-green-600" : "text-muted-foreground"
+            }`}
           />
           <DetailRow
             icon={<Camera size={15} color={palette.mutedForeground} />}
             label="Cámara"
-            value="Activa ✓"
-            valueClassName="text-sm font-medium text-green-600"
+            value={
+              camaraDisponible === null ? "Verificando…" : camaraDisponible ? "Permiso concedido ✓" : "Sin permiso"
+            }
+            valueClassName={`text-sm font-medium ${
+              camaraDisponible ? "text-green-600" : "text-muted-foreground"
+            }`}
           />
           <DetailRow
             icon={<HardDrive size={15} color={palette.mutedForeground} />}
             label="Almacenamiento"
-            value="2.1 GB / 16 GB"
+            value="No disponible"
           />
           <DetailRow
             icon={<Clock size={15} color={palette.mutedForeground} />}
             label="Última sync"
-            value="Hoy 14:32"
+            value="Pendiente (Sprint 4)"
           />
         </View>
 
@@ -131,6 +156,7 @@ export default function AdminScreen() {
         </Pressable>
 
         <Pressable
+          onPress={() => router.push("/configuracion")}
           className="flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3.5"
           style={({ pressed }) => pressed && { opacity: 0.9 }}
         >
