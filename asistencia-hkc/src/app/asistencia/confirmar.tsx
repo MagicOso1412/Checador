@@ -19,7 +19,7 @@ function formatCoordenada(valor: number, positivo: string, negativo: string) {
 
 /** Paso 3 del registro: revisar GPS + tipo de movimiento y confirmar (o cancelar). */
 export default function AttendanceConfirmScreen() {
-  const { movementType, setMovementType } = useAttendance();
+  const { movementType, setMovementType, operationMode } = useAttendance();
   const proyectoSeleccionado = useProyectoStore((state) => state.proyectoSeleccionado);
   const {
     trabajadorSeleccionado,
@@ -63,16 +63,22 @@ export default function AttendanceConfirmScreen() {
 
   const puedeConfirmar = Boolean(proyectoSeleccionado) && !registrando;
 
+  // Esta pantalla es compartida entre Modo Campo y Modo Kiosco (ver
+  // ARCHITECTURE.md): el resto del pipeline (identificar trabajador, cámara,
+  // GPS, registrar) es idéntico en ambos, solo cambia a dónde se regresa.
+  const homeRoute = operationMode === "kiosco" ? "/kiosco" : "/proyecto";
+  const exitoRoute = operationMode === "kiosco" ? "/kiosco/exito" : "/asistencia/exito";
+
   const handleCancelar = () => {
     limpiar();
-    router.replace("/proyecto");
+    router.replace(homeRoute);
   };
 
   const handleConfirmar = async () => {
     if (!proyectoSeleccionado) return;
     try {
       await registrar(proyectoSeleccionado.id, mapMovementLabelToTipoRegistro(movementType));
-      router.push("/asistencia/exito");
+      router.push(exitoRoute);
     } catch {
       // El error ya queda expuesto en el store (`error`) y se muestra abajo.
     }

@@ -14,10 +14,22 @@ import {
 
 import { palette } from "@/constants/palette";
 import { shadowSm } from "@/constants/shadows";
+import { useAttendance } from "@/context/attendance-context";
 import { useClock } from "@/hooks/use-clock";
 
 export default function ModeSelectScreen() {
   const now = useClock();
+  const { setOperationMode } = useAttendance();
+
+  const handleKiosco = () => {
+    setOperationMode("kiosco");
+    router.push("/kiosco");
+  };
+
+  const handleCampo = () => {
+    setOperationMode("campo");
+    router.push("/proyecto/seleccionar");
+  };
   const time = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
   const date = now.toLocaleDateString("es-MX", {
     weekday: "long",
@@ -51,7 +63,7 @@ export default function ModeSelectScreen() {
         </Text>
 
         <Pressable
-          onPress={() => router.push("/kiosco")}
+          onPress={handleKiosco}
           className="flex-row items-center gap-4 rounded-2xl border border-border bg-card p-5"
           style={({ pressed }) => [shadowSm, pressed && { opacity: 0.9 }]}
         >
@@ -68,7 +80,7 @@ export default function ModeSelectScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => router.push("/proyecto/seleccionar")}
+          onPress={handleCampo}
           className="flex-row items-center gap-4 rounded-2xl border border-border bg-card p-5"
           style={({ pressed }) => [shadowSm, pressed && { opacity: 0.9 }]}
         >

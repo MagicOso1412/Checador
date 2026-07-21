@@ -1,6 +1,7 @@
 import { migration001CreateTrabajadores } from "./001_create_trabajadores";
 import { migration002CreateProyectos } from "./002_create_proyectos";
 import { migration003CreateAsistencias } from "./003_create_asistencias";
+import { migration004CreateConfiguracionDispositivo } from "./004_create_configuracion_dispositivo";
 import type { Migration } from "./types";
 
 /**
@@ -13,6 +14,7 @@ export const migrations: Migration[] = [
   migration001CreateTrabajadores,
   migration002CreateProyectos,
   migration003CreateAsistencias,
+  migration004CreateConfiguracionDispositivo,
 ];
 
 export type { Migration } from "./types";

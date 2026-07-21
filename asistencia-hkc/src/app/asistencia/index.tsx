@@ -12,17 +12,25 @@ import { useRegistroAsistenciaStore } from "@/store/registroAsistenciaStore";
 import { useTrabajadorStore } from "@/store/trabajadorStore";
 
 /**
- * Paso 1 del registro de asistencia: identificación del trabajador. Todavía
- * es selección manual de una lista (ver `store/trabajadorStore.ts`) — cuando
- * llegue el reconocimiento facial (Sprint 5) esta pantalla se reemplaza por
- * detección automática, pero el resto del flujo (capturar → confirmar →
- * éxito) no debería tener que cambiar.
+ * Identificación del trabajador. Todavía es selección manual de una lista
+ * (ver `store/trabajadorStore.ts`) — cuando llegue el reconocimiento facial
+ * real (Sprint 5) esta pantalla pasa a ser el respaldo para cuando el match
+ * automático falla, en vez del único mecanismo.
+ *
+ * Se llega aquí en dos momentos distintos según el modo:
+ * - Campo: ANTES de la foto (paso 1) — se sabe quién es antes de fotografiar.
+ * - Kiosco: DESPUÉS de la foto (`asistencia/capturar.tsx` ya la tomó) — se
+ *   usa como confirmación de identidad, no como paso separado previo a la
+ *   cámara (así lo pidió el flujo de Kiosco: la cámara abre directo).
+ * `fotoUri` ya presente en el borrador es justo la señal para saber en cuál
+ * de los dos casos estamos y a dónde seguir.
  */
 export default function SeleccionarTrabajadorScreen() {
   const proyectoSeleccionado = useProyectoStore((state) => state.proyectoSeleccionado);
   const { trabajadores, cargando, error, cargarTrabajadores } = useTrabajadorStore();
-  const seleccionarTrabajador = useRegistroAsistenciaStore((state) => state.seleccionarTrabajador);
+  const { fotoUri, seleccionarTrabajador } = useRegistroAsistenciaStore();
   const [search, setSearch] = useState("");
+  const identificandoTrasFoto = Boolean(fotoUri);
 
   useEffect(() => {
     cargarTrabajadores();
@@ -37,13 +45,13 @@ export default function SeleccionarTrabajadorScreen() {
 
   const handleSelect = (trabajador: Trabajador) => {
     seleccionarTrabajador(trabajador);
-    router.push("/asistencia/capturar");
+    router.push(identificandoTrasFoto ? "/asistencia/confirmar" : "/asistencia/capturar");
   };
 
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader
-        title="Identificar Trabajador"
+        title={identificandoTrasFoto ? "Confirmar Identidad" : "Identificar Trabajador"}
         subtitle={proyectoSeleccionado?.nombre ?? "Selección manual"}
         onBack={() => router.back()}
       />

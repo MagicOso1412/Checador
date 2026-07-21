@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Building2, ChevronRight } from "lucide-react-native";
 
 import { ScreenHeader } from "@/components/attendance/screen-header";
@@ -10,14 +10,21 @@ import { Proyecto } from "@/domain/entities/Proyecto";
 import { useProyectoStore } from "@/store/proyectoStore";
 
 /**
- * Selección de proyecto para Modo Campo. Los proyectos vienen de SQLite (a
- * través de ObtenerProyectosUseCase / proyectoStore), no de datos mock. Al
- * seleccionar uno, queda guardado en el store y se navega directo a la
- * pantalla de asistencia (cámara) — el mismo comportamiento tanto si esta
- * pantalla se abre al entrar a Modo Campo por primera vez como si se abre
- * desde "Cambiar Proyecto".
+ * Selección de proyecto. Los proyectos vienen de SQLite (a través de
+ * ObtenerProyectosUseCase / proyectoStore), no de datos mock. Al seleccionar
+ * uno, queda guardado en el store (y persistido — ver proyectoStore.ts).
+ *
+ * Se reutiliza para dos casos con destino distinto (parámetro `next`):
+ * - Modo Campo (default, sin `next`): siempre se muestra explícitamente al
+ *   entrar y navega a `/asistencia` (identificar trabajador).
+ * - Modo Kiosco (`next=kiosco`): solo se muestra la primera vez que el
+ *   dispositivo no tiene proyecto asignado (ver guard en `kiosco/index.tsx`);
+ *   navega de regreso a `/kiosco`, que ya no volverá a pedirlo mientras el
+ *   proyecto persistido siga siendo válido.
  */
 export default function ProjectSelectScreen() {
+  const { next } = useLocalSearchParams<{ next?: string }>();
+  const destino = next === "kiosco" ? "/kiosco" : "/asistencia";
   const { proyectos, cargando, error, cargarProyectos, seleccionarProyecto } =
     useProyectoStore();
   const [search, setSearch] = useState("");
@@ -33,7 +40,7 @@ export default function ProjectSelectScreen() {
 
   const handleSelect = (proyecto: Proyecto) => {
     seleccionarProyecto(proyecto);
-    router.replace("/asistencia");
+    router.replace(destino);
   };
 
   return (

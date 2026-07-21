@@ -205,28 +205,69 @@ dedicado (`trabajadorSeleccionado`, `fotoUri`, `ubicacion`) con una acción `reg
 que llama a `RegistrarAsistenciaUseCase` y una `limpiar()` que se llama al cancelar o al
 volver a la pantalla de espera tras un registro exitoso.
 
-### Flujo real de Campo (completo)
+### Flujo real de registro (compartido entre Campo y Kiosco, orden distinto)
 
-1. `asistencia/index.tsx` — identificación de trabajador: lista real desde
-   `trabajadorStore` (SQLite) con búsqueda por nombre/número de empleado. Selección
-   manual porque el reconocimiento facial es Sprint 5; el resto del flujo no debería
-   tener que cambiar cuando eso llegue.
-2. `asistencia/capturar.tsx` (ruta nueva) — cámara real (`CameraCapture`), guarda la
-   foto en `registroAsistenciaStore`.
-3. `asistencia/confirmar.tsx` — pide GPS real al entrar (best-effort, no bloquea si
-   falla), muestra trabajador/foto/proyecto reales y el selector de tipo de movimiento;
-   "Confirmar" llama a `registroAsistenciaStore.registrar()` (persiste en SQLite vía
-   `RegistrarAsistenciaUseCase`) y navega a éxito. "Cancelar" limpia el borrador.
-4. `asistencia/exito.tsx` — muestra el registro real guardado; al volver (botón o
-   auto-cierre) limpia el borrador y regresa a `/proyecto` (pantalla de espera).
+Campo y Kiosco recorren las mismas 3 pantallas (identificar, capturar, confirmar) — pero
+en **orden distinto**, y comparten la misma lógica de negocio (cámara, GPS, registro en
+SQLite) sin duplicarla:
 
-El modo Kiosco (`kiosco/*`) sigue siendo una simulación visual (detección aleatoria, sin
-persistir nada) — **decisión deliberada, no pendiente por descuido**: el roadmap ya
-asigna "Modo kiosco completamente automático" a Sprint 5 (reconocimiento facial), así
-que construir aquí una segunda copia manual del flujo de identificación solo para
-retirarla en un par de sprints no es buen uso del tiempo. Cuando llegue Sprint 5, Kiosco
-reutilizará las mismas piezas (`CameraCapture`, `locationService`,
-`RegistrarAsistenciaUseCase`) con detección automática en vez de selección manual.
+- **Campo**: `asistencia/index.tsx` (identificar trabajador, lista real de
+  `trabajadorStore`) → `asistencia/capturar.tsx` (foto) → `asistencia/confirmar.tsx`.
+  Se sabe quién es antes de fotografiar (un supervisor opera la tablet).
+- **Kiosco**: `asistencia/capturar.tsx` (cámara directo — "reconocimiento facial", sin
+  pantalla previa) → `asistencia/index.tsx` (identificar; como todavía no hay
+  reconocimiento facial real, aquí se le pide al trabajador confirmar quién es, **después**
+  de la foto, no antes) → `asistencia/confirmar.tsx`. Cuando llegue Sprint 5, este paso
+  se autocompleta con el resultado del match facial y `asistencia/index.tsx` pasa a ser
+  solo el respaldo para cuando el reconocimiento automático falla — no hace falta
+  reestructurar el flujo, solo rellenar `trabajadorSeleccionado` automáticamente en vez
+  de manualmente.
+
+Ambas pantallas deciden a dónde seguir mirando qué ya existe en el borrador
+(`registroAsistenciaStore`): `capturar.tsx` va a `confirmar` si ya hay trabajador
+(Campo) o a `index` si no (Kiosco); `index.tsx` va a `confirmar` si ya hay foto (Kiosco)
+o a `capturar` si no (Campo). Ninguna de las dos exige un orden fijo por sí misma.
+
+`asistencia/confirmar.tsx` pide GPS real al entrar (best-effort, no bloquea si falla),
+muestra trabajador/foto/proyecto reales y el selector de tipo de movimiento;
+"Confirmar" llama a `registroAsistenciaStore.registrar()` (persiste en SQLite vía
+`RegistrarAsistenciaUseCase`). El destino tras confirmar/cancelar depende de
+`attendance-context.operationMode` (`/asistencia/exito` + `/proyecto` para Campo,
+`/kiosco/exito` + `/kiosco` para Kiosco) — por eso `mode-select.tsx` ahora sí llama
+`setOperationMode()` al elegir un modo, algo que antes no hacía. La pantalla de éxito
+correspondiente (mismos datos reales, estilo visual de cada modo) limpia el borrador al
+volver (botón o auto-cierre) y regresa a la pantalla de espera de su modo.
+
+### Kiosco vs. Campo: conectividad y proyecto asignado
+
+Kiosco es un dispositivo fijo que se asume **conectado a internet todo el tiempo**;
+Campo es una tablet que se mueve entre obras y debe tolerar estar sin conexión. Hoy
+(antes de que exista sincronización real, Sprint 4) esto no cambia cómo se guarda una
+asistencia — ambos modos escriben igual en SQLite local — pero sí ya determina cómo cada
+modo obtiene su proyecto:
+
+- **Campo**: pide el proyecto explícitamente cada vez (`proyecto/seleccionar.tsx`, sin
+  parámetro `next`) porque la tablet cambia de obra seguido.
+- **Kiosco**: el proyecto es una propiedad del dispositivo, no algo que se repita en cada
+  registro. `kiosco/index.tsx` solo redirige a `proyecto/seleccionar.tsx?next=kiosco` si
+  el dispositivo todavía no tiene uno asignado; una vez elegido, `seleccionarProyecto()`
+  lo guarda en la tabla `configuracion_dispositivo` (SQLite, migración
+  `004_create_configuracion_dispositivo` — ver `infrastructure/storage/deviceConfigStorage.ts`)
+  y `cargarProyectos()` lo restaura automáticamente en cada arranque si todavía no hay
+  nada seleccionado en memoria. Kiosco no vuelve a preguntarlo entre reinicios.
+
+  **Nota:** la primera versión de esto usaba `zustand/middleware persist` con
+  `@react-native-async-storage/async-storage`, pero causó un crash
+  (`Native module is null, cannot access legacy storage`) porque ese paquete es un
+  módulo nativo nuevo y el dev client instalado en el dispositivo no se había
+  reconstruido con él enlazado. Se reemplazó por la tabla SQLite de arriba: SQLite ya es
+  una dependencia nativa que funciona en esta app (migraciones, trabajadores, proyectos,
+  asistencias), así que no depende de agregar/enlazar ningún módulo nativo nuevo ni de
+  reconstruir el dev client.
+- Cuando llegue Sprint 4 (sincronización), el supuesto "Kiosco siempre en línea" es lo
+  que justificará que sus asistencias puedan sincronizarse de inmediato en vez de quedar
+  en cola como las de Campo — ese diseño todavía no está implementado, pero esta
+  distinción de conectividad ya queda modelada a nivel de producto.
 
 ### Historial local
 
@@ -244,11 +285,14 @@ Las pantallas de `src/app/` se portaron desde un prototipo visual (Figma Make). 
 flujo de navegación se conserva tal como está en el prototipo, con dos modos elegidos
 explícitamente en `mode-select.tsx`:
 
-- **Modo Kiosco** (dispositivo fijo en un punto de acceso): `mode-select` →
-  `/kiosco` abre la cámara/reconocimiento directamente, sin paso de selección de
-  proyecto. El proyecto de un kiosco es una propiedad del dispositivo (se configurará
-  en `device-setup` / administración en un sprint futuro), no algo que el usuario
-  elija en cada registro.
+- **Modo Kiosco** (dispositivo fijo en un punto de acceso, siempre en línea): `mode-select` →
+  `/kiosco` (pantalla de espera). Sin paso de selección de proyecto en cada registro —
+  el proyecto es una propiedad del dispositivo, persistida (ver "Kiosco vs. Campo:
+  conectividad y proyecto asignado" más abajo); solo se pide una vez, la primera vez que
+  el dispositivo no tiene uno asignado. Desde `/kiosco`, "Iniciar reconocimiento" abre la
+  cámara directo (`/asistencia/capturar`) — a propósito sin pantalla de selección de
+  trabajador antes, para que se sienta como reconocimiento facial; la identificación
+  manual se pide después de la foto (ver "Flujo real de registro" más abajo).
 - **Modo Campo** (tablet que se mueve entre obras): `mode-select` →
   `/proyecto/seleccionar` (selección obligatoria de proyecto, con datos reales desde
   SQLite vía `proyectoStore`) → al elegir uno, navega directo con `router.replace` a
@@ -264,9 +308,11 @@ El "proyecto seleccionado" ya no vive en datos mock: todas las pantallas de Camp
 `asistencia/confirmar.tsx`, `asistencia/exito.tsx`) y `admin.tsx` leen
 `proyectoSeleccionado` desde `useProyectoStore()` (Zustand, respaldado por SQLite).
 `src/context/attendance-context.tsx` se redujo a lo que sí es estado transitorio de UI:
-`movementType` y `operationMode`. `src/lib/mock-data.ts` sigue existiendo solo para
-`MOCK_EMPLOYEE` y `MOVEMENT_TYPES` (reconocimiento facial y registro de asistencia
-reales todavía no están implementados — ver Roadmap).
+`movementType` y `operationMode`. `src/lib/mock-data.ts` ya solo contiene lo que
+todavía no tiene fuente real: `MOVEMENT_TYPES` y los estilos/etiquetas de estado del
+historial (`STATUS_STYLES`/`STATUS_LABELS`) — `PROJECTS`, `HISTORY_RECORDS` y
+`MOCK_EMPLOYEE` se retiraron al quedar sin uso (proyectos, historial y trabajadores ya
+son datos reales de SQLite).
 
 Como el `Proyecto` de dominio solo tiene `id`/`nombre`/`activo`, las tarjetas y
 encabezados que en el prototipo mostraban campos mock (`company`, `location`,
@@ -306,6 +352,11 @@ implementadas con `Animated` de React Native en su lugar.
   `infrastructure/camera`/`infrastructure/storage`).
 - ✅ GPS real (`infrastructure/location/locationService.ts`, best-effort).
 - ✅ Historial local con datos reales (`ObtenerHistorialUseCase` + `historialStore`).
+- ✅ Modo Kiosco conectado al mismo pipeline real (cámara, GPS, registro en SQLite) que
+  Campo, con proyecto de dispositivo persistido en SQLite (`configuracion_dispositivo`).
+  La cámara abre directo al tocar "Iniciar reconocimiento" (sin lista de trabajador
+  antes); la identificación manual se pide después de la foto, a modo de confirmación.
+  Solo queda automatizar ese paso con reconocimiento facial real — eso es Sprint 5.
 
 ### Sprint 3 — Administración
 - CRUD de trabajadores (migrar de `repositories/trabajadorRepository.ts` al patrón de
