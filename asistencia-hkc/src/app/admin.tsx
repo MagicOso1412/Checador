@@ -26,6 +26,7 @@ import { obtenerNombreDispositivo, obtenerVersionApp } from "@/infrastructure/de
 import { verificarPermisoUbicacion } from "@/infrastructure/location/locationService";
 import { useConfiguracionStore } from "@/store/configuracionStore";
 import { useProyectoStore } from "@/store/proyectoStore";
+import { useSyncStore } from "@/store/syncStore";
 
 /** `null` = todavía verificando. */
 type EstadoPermiso = boolean | null;
@@ -35,15 +36,18 @@ export default function AdminScreen() {
   const proyectoSeleccionado = useProyectoStore((state) => state.proyectoSeleccionado);
   const servidor = useConfiguracionStore((state) => state.servidor);
   const cargarConfiguracion = useConfiguracionStore((state) => state.cargarConfiguracion);
+  const ultimaSincronizacion = useSyncStore((state) => state.ultimaSincronizacion);
+  const cargarEstadoSync = useSyncStore((state) => state.cargarEstado);
 
   const [gpsDisponible, setGpsDisponible] = useState<EstadoPermiso>(null);
   const [camaraDisponible, setCamaraDisponible] = useState<EstadoPermiso>(null);
 
   useEffect(() => {
     cargarConfiguracion();
+    cargarEstadoSync();
     verificarPermisoUbicacion().then(setGpsDisponible);
     verificarPermisoCamara().then(setCamaraDisponible);
-  }, [cargarConfiguracion]);
+  }, [cargarConfiguracion, cargarEstadoSync]);
 
   return (
     <View className="flex-1 bg-background">
@@ -127,7 +131,11 @@ export default function AdminScreen() {
           <DetailRow
             icon={<Clock size={15} color={palette.mutedForeground} />}
             label="Última sync"
-            value="Pendiente (Sprint 4)"
+            value={
+              ultimaSincronizacion
+                ? ultimaSincronizacion.toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })
+                : "Nunca"
+            }
           />
         </View>
 

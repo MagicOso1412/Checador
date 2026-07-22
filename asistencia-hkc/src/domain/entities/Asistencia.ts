@@ -20,7 +20,13 @@ export class Asistencia {
 
         public longitud: number | null,
 
-        public sincronizado: boolean
+        public sincronizado: boolean,
+
+        /** Cuántas veces se intentó enviar este registro a un backend de sincronización (Sprint 4). */
+        public intentosSincronizacion: number = 0,
+
+        /** Mensaje del último intento fallido, o `null` si nunca falló (o si ya se sincronizó). */
+        public ultimoErrorSincronizacion: string | null = null
 
     ) {}
 

@@ -525,6 +525,83 @@ producción con paridad completa.
 
 ---
 
+## Sincronización — cola local (Sprint 4)
+
+No existe todavía un backend real (sin URL de API ni contrato de endpoints definido), así
+que Sprint 4 se abordó como: **construir toda la arquitectura cliente de sincronización,
+lista para conectar, sin bloquear por la falta de servidor.** Decisión tomada
+explícitamente con el usuario en vez de asumirla.
+
+- Migración `007_add_sync_tracking_asistencias.ts` — agrega `intentos_sincronizacion`
+  (INTEGER, default 0) y `ultimo_error_sincronizacion` (TEXT, nullable) a `asistencias`
+  vía `ALTER TABLE ... ADD COLUMN` (seguro sobre datos existentes). `sincronizado` ya
+  existía desde la migración 003.
+- `domain/entities/Asistencia.ts` — se agregaron `intentosSincronizacion` y
+  `ultimoErrorSincronizacion` como parámetros de constructor **con default**
+  (`= 0` / `= null`), para no romper el único call site que crea asistencias nuevas
+  (`RegistrarAsistenciaUseCase`, que siempre empieza en 0/null).
+- `domain/gateways/ISyncGateway.ts` — puerto nuevo, deliberadamente separado de
+  `domain/repositories/`: un repositorio persiste en el almacenamiento local de esta
+  app (SQLite); un gateway envía datos a un sistema externo que la app no controla. Son
+  responsabilidades distintas aunque ambas sean interfaces de `domain/` implementadas en
+  `infrastructure/`.
+- `domain/repositories/IAsistenciaRepository.ts` — se agregaron
+  `obtenerPendientesDeSincronizar()` (los `sincronizado = false`, más antiguos primero),
+  `marcarComoSincronizado()` (limpia también el último error) y
+  `registrarIntentoFallido()` (incrementa el contador, guarda el mensaje). Implementados
+  en `SQLiteAsistenciaRepository`.
+- `infrastructure/sync/UnconfiguredSyncGateway.ts` — implementación **por defecto** de
+  `ISyncGateway`, usada hoy por `store/syncStore.ts`. Siempre falla, con un mensaje claro
+  ("No hay un servidor de sincronización configurado todavía") — a propósito: la app no
+  debe fingir que algo se sincronizó cuando en realidad no viajó a ningún lado. Gracias a
+  esto, toda la cola (conteos, reintentos, pantalla `/sync`) funciona de extremo a
+  extremo desde ya, con errores honestos en vez de datos falsos.
+- `infrastructure/sync/HttpSyncGateway.ts` — implementación real sobre `fetch`, lista
+  para usarse el día que exista un backend: recibe una `baseUrl` en el constructor y hace
+  `POST ${baseUrl}/asistencias` con el `AsistenciaDTO`. **Limitación conocida:** manda
+  `fotoUri` tal cual (ruta local o `data:` URI), no el archivo — subir la foto en sí
+  depende de un contrato que todavía no existe, así que no tiene sentido diseñarlo a
+  ciegas. Integrar esto es cambiar una sola línea en `syncStore.ts`
+  (`new UnconfiguredSyncGateway()` → `new HttpSyncGateway(urlReal)`); todo lo demás ya
+  está construido.
+- `application/useCases/SincronizarAsistenciasUseCase.ts` — procesa la cola
+  secuencialmente (no en paralelo, más simple y no satura un backend real cuando exista),
+  acepta un callback `onProgreso(procesados, total)` para progreso en vivo, y un fallo en
+  un registro no detiene a los demás.
+- `application/useCases/ObtenerEstadoSincronizacionUseCase.ts` — conteo rápido
+  (pendientes / con error) sin correr una sincronización, para mostrar en pantalla.
+- `store/syncStore.ts` — reemplaza el mock anterior de `sync.tsx` (una barra de progreso
+  con `setInterval` que no tocaba datos reales). Persiste `ultima_sincronizacion` en
+  `configuracion_dispositivo` (SQLite, mismo mecanismo que el resto de la app) para que
+  sobreviva reinicios. `admin.tsx` ("Última sync") y `sync.tsx` leen de aquí.
+- `app/sync.tsx` — reescrita con datos reales: pendientes, con error, última
+  sincronización, progreso en vivo durante una corrida, y resultado de la última corrida.
+
+### Por qué no hay reintentos automáticos todavía
+
+El roadmap original menciona "reintentos automáticos". Se decidió **no** construir un
+disparador automático (por ejemplo, reintentar al recuperar conexión) en esta iteración,
+por dos motivos: (1) sin un backend real, un reintento automático solo repetiría el mismo
+error honesto una y otra vez, sin valor observable; (2) detectar conectividad de forma
+confiable requeriría un módulo nativo nuevo (`@react-native-community/netinfo` o
+similar) que no es dependencia de este proyecto todavía — agregar un módulo nativo sin
+poder reconstruir el dev client en este entorno ya causó el crash de AsyncStorage
+documentado más arriba, y no vale la pena repetir ese riesgo por una función que hoy no
+tendría nada real que reintentar. El contador `intentos_sincronizacion` y el flag
+`ultimo_error_sincronizacion` ya están persistidos y listos para que, cuando exista un
+backend real, se agregue ese disparador automático sin tocar el resto de la
+arquitectura.
+
+### Nota: `app/offline.tsx`
+
+Pantalla existente con datos de ejemplo ("Registros guardados: 10", "Capacidad restante:
+13.9 GB") que no está enlazada desde ninguna navegación activa de la app (no hay ningún
+`router.push("/offline")` en el código). Se dejó fuera del alcance de esta iteración por
+no ser parte del flujo real; si se decide usarla, debería conectarse a
+`ObtenerEstadoSincronizacionUseCase` igual que `/sync`.
+
+---
+
 ## Roadmap
 
 ### Sprint 1 — Infraestructura base ✅
@@ -562,8 +639,19 @@ producción con paridad completa.
 - ✅ Dashboard local — resumen (total, sincronizados/pendientes, por tipo de movimiento)
   sobre el historial — ver "Dashboard local" más arriba.
 
-### Sprint 4 — Sincronización
-- API REST, resolución de conflictos, estado de sincronización, reintentos automáticos.
+### Sprint 4 — Sincronización (arquitectura cliente lista, en curso)
+- ✅ Cola de sincronización local completa: dominio (`ISyncGateway`, columnas de
+  seguimiento en `asistencias`), infraestructura (`UnconfiguredSyncGateway` +
+  `HttpSyncGateway` listo para conectar), use cases (`SincronizarAsistenciasUseCase`,
+  `ObtenerEstadoSincronizacionUseCase`), store y pantalla `/sync` reales — ver
+  "Sincronización — cola local" más arriba.
+- ⬜ API REST real (todavía no existe un backend; `HttpSyncGateway` está listo para
+  apuntarle en cuanto lo haya).
+- ⬜ Resolución de conflictos (no aplica hasta que haya un servidor con el que
+  conciliar datos).
+- ⬜ Reintentos automáticos (disparador por reconexión) — ver "Por qué no hay
+  reintentos automáticos todavía" más arriba; requiere backend real + un módulo de
+  detección de conectividad que hoy no es dependencia del proyecto.
 
 ### Sprint 5 — Reconocimiento facial
 - Captura de múltiples fotografías por trabajador, generación de embeddings,

@@ -14,6 +14,8 @@ type AsistenciaRow = {
   latitud: number | null;
   longitud: number | null;
   sincronizado: number;
+  intentos_sincronizacion: number;
+  ultimo_error_sincronizacion: string | null;
 };
 
 function toEntity(row: AsistenciaRow): Asistencia {
@@ -27,6 +29,8 @@ function toEntity(row: AsistenciaRow): Asistencia {
     row.latitud,
     row.longitud,
     row.sincronizado === EstadoSincronizacion.SINCRONIZADO,
+    row.intentos_sincronizacion,
+    row.ultimo_error_sincronizacion,
   );
 }
 
@@ -84,5 +88,36 @@ export class SQLiteAsistenciaRepository implements IAsistenciaRepository {
         );
 
     return rows.map(toEntity);
+  }
+
+  async obtenerPendientesDeSincronizar(limite: number = DEFAULT_LIMITE): Promise<Asistencia[]> {
+    const db = await getDatabase();
+
+    const rows = await db.getAllAsync<AsistenciaRow>(
+      `SELECT * FROM asistencias WHERE sincronizado = ? ORDER BY fecha_hora ASC LIMIT ?`,
+      [EstadoSincronizacion.PENDIENTE, limite],
+    );
+
+    return rows.map(toEntity);
+  }
+
+  async marcarComoSincronizado(id: string): Promise<void> {
+    const db = await getDatabase();
+
+    await db.runAsync(
+      `UPDATE asistencias SET sincronizado = ?, ultimo_error_sincronizacion = NULL WHERE id = ?`,
+      [EstadoSincronizacion.SINCRONIZADO, id],
+    );
+  }
+
+  async registrarIntentoFallido(id: string, mensaje: string): Promise<void> {
+    const db = await getDatabase();
+
+    await db.runAsync(
+      `UPDATE asistencias
+       SET intentos_sincronizacion = intentos_sincronizacion + 1, ultimo_error_sincronizacion = ?
+       WHERE id = ?`,
+      [mensaje, id],
+    );
   }
 }
