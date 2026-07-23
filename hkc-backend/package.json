@@ -1,0 +1,30 @@
+{
+  "name": "hkc-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend de HKC Attendance: recibe asistencias sincronizadas de los dispositivos y expone lectura para el portal RH.",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "crear-dispositivo": "tsx src/scripts/crearDispositivo.ts",
+    "crear-usuario-rh": "tsx src/scripts/crearUsuarioRh.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^4.17.23",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.23.1",
+    "typescript": "~6.0.3"
+  }
+}

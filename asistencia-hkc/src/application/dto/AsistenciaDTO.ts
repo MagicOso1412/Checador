@@ -1,26 +1,9 @@
-import { TipoRegistro } from "../../domain/enums/TipoRegistro";
-
 /**
- * Forma completa de un registro de asistencia (incluye `id`/`fechaHora`, que
- * genera el use case, no quien lo llama). Pensado para cuando exista la capa
- * de sincronización (Sprint 4): es el shape que viajaría hacia/desde la API.
+ * @deprecated Reemplazado por `AsistenciaSyncPayload.ts` (mismo directorio):
+ * el payload real de sincronización va denormalizado (con nombre de
+ * trabajador/proyecto, no solo el id) — ver ese archivo para el porqué. Este
+ * archivo no se pudo borrar en este entorno (no hay operación de borrado
+ * disponible); queda como shim de compatibilidad. No lo importes en código
+ * nuevo.
  */
-export interface AsistenciaDTO {
-
-    id: string;
-
-    trabajadorId: string;
-
-    proyectoId: string;
-
-    tipo: TipoRegistro;
-
-    fechaHora: Date;
-
-    fotoUri: string;
-
-    latitud: number | null;
-
-    longitud: number | null;
-
-}
+export type { AsistenciaSyncPayload as AsistenciaDTO } from "./AsistenciaSyncPayload";

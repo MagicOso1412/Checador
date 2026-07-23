@@ -1,17 +1,10 @@
-import { Asistencia } from "../entities/Asistencia";
-
 /**
- * Puerto hacia un backend externo de sincronización. Deliberadamente
- * separado de `domain/repositories/`: un repositorio persiste entidades en
- * el almacenamiento local de esta app (SQLite); un gateway las envía a un
- * sistema externo que esta app no controla. Son responsabilidades distintas
- * aunque ambas vivan en `domain/` como interfaces que `infrastructure/`
- * implementa.
- *
- * `enviarAsistencia` debe lanzar si el envío falla (red, servidor, timeout,
- * etc.) — `SincronizarAsistenciasUseCase` decide qué hacer con ese error
- * (registrarlo y seguir con el siguiente registro), no el gateway.
+ * @deprecated Movido a `application/gateways/ISyncGateway.ts` — un gateway
+ * de sincronización opera sobre `AsistenciaSyncPayload` (un DTO
+ * denormalizado de `application/`, con nombre de trabajador/proyecto), no
+ * sobre la entidad de dominio pura `Asistencia`, así que pertenece a esa
+ * capa. Este archivo no se pudo borrar en este entorno (no hay operación de
+ * borrado disponible); queda como shim de compatibilidad. No lo importes en
+ * código nuevo.
  */
-export interface ISyncGateway {
-  enviarAsistencia(asistencia: Asistencia): Promise<void>;
-}
+export type { ISyncGateway } from "../../application/gateways/ISyncGateway";

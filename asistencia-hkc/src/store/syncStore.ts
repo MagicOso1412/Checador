@@ -9,6 +9,8 @@ import {
   type ResultadoSincronizacion,
 } from "@/application/useCases/SincronizarAsistenciasUseCase";
 import { SQLiteAsistenciaRepository } from "@/infrastructure/repositories/SQLiteAsistenciaRepository";
+import { SQLiteProyectoRepository } from "@/infrastructure/repositories/SQLiteProyectoRepository";
+import { SQLiteTrabajadorRepository } from "@/infrastructure/repositories/SQLiteTrabajadorRepository";
 import { UnconfiguredSyncGateway } from "@/infrastructure/sync/UnconfiguredSyncGateway";
 import {
   guardarConfigDispositivo,
@@ -21,15 +23,18 @@ const asistenciaRepository = new SQLiteAsistenciaRepository();
 const obtenerEstadoSincronizacionUseCase = new ObtenerEstadoSincronizacionUseCase(asistenciaRepository);
 
 /**
- * Gateway usado por esta app hoy: no hay backend real (Sprint 4 no lo
- * define todavía), así que cualquier intento de sincronizar falla con un
- * mensaje honesto en vez de fingir éxito — ver `UnconfiguredSyncGateway`.
- * El día que exista un backend, este es el único lugar que hay que cambiar
- * (por ejemplo, a `new HttpSyncGateway(urlDelServidor)`); todo lo demás
- * (cola, reintentos, UI) ya está listo.
+ * Gateway usado por esta app hoy: el backend (`hkc-backend/`) todavía no
+ * está desplegado en el Mac mini, así que cualquier intento de sincronizar
+ * falla con un mensaje honesto en vez de fingir éxito — ver
+ * `UnconfiguredSyncGateway`. El día que el backend esté corriendo, este es
+ * el único lugar que hay que cambiar (a
+ * `new HttpSyncGateway(urlDelServidor, apiKey)`); todo lo demás (cola,
+ * reintentos, UI) ya está listo.
  */
 const sincronizarAsistenciasUseCase = new SincronizarAsistenciasUseCase(
   asistenciaRepository,
+  new SQLiteTrabajadorRepository(),
+  new SQLiteProyectoRepository(),
   new UnconfiguredSyncGateway(),
 );
 

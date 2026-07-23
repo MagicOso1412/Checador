@@ -540,11 +540,22 @@ explícitamente con el usuario en vez de asumirla.
   `ultimoErrorSincronizacion` como parámetros de constructor **con default**
   (`= 0` / `= null`), para no romper el único call site que crea asistencias nuevas
   (`RegistrarAsistenciaUseCase`, que siempre empieza en 0/null).
-- `domain/gateways/ISyncGateway.ts` — puerto nuevo, deliberadamente separado de
-  `domain/repositories/`: un repositorio persiste en el almacenamiento local de esta
-  app (SQLite); un gateway envía datos a un sistema externo que la app no controla. Son
-  responsabilidades distintas aunque ambas sean interfaces de `domain/` implementadas en
-  `infrastructure/`.
+- `application/dto/AsistenciaSyncPayload.ts` — payload **denormalizado** (incluye
+  `trabajadorNombre`/`numeroEmpleado`/`proyectoNombre`, no solo los ids) para lo que
+  viaja al backend. Decisión tomada al diseñar `hkc-backend/` (ver
+  `hkc-backend/BACKEND_ARCHITECTURE.md`): así el backend no necesita su propio
+  catálogo sincronizado de trabajadores/proyectos solo para mostrarle algo legible a
+  RH, y el registro histórico conserva el nombre real de ese momento aunque el
+  trabajador se renombre o se dé de baja después. Reemplaza a
+  `application/dto/AsistenciaDTO.ts` (ahora `@deprecated`, shim de compatibilidad).
+- `application/gateways/ISyncGateway.ts` — puerto hacia un backend externo.
+  **Corrección de capa** respecto al diseño original: se creó primero en
+  `domain/gateways/`, pero al pasar a depender de `AsistenciaSyncPayload` (un DTO de
+  `application/`, no la entidad pura `Asistencia`) quedó mal ubicado — un archivo de
+  `domain/` no debe depender de un DTO de una capa superior. Se movió a
+  `application/gateways/`, mismo criterio que `application/services/historialCsv.ts`.
+  El archivo viejo (`domain/gateways/ISyncGateway.ts`) quedó como shim `@deprecated`
+  (no se pudo borrar en este entorno).
 - `domain/repositories/IAsistenciaRepository.ts` — se agregaron
   `obtenerPendientesDeSincronizar()` (los `sincronizado = false`, más antiguos primero),
   `marcarComoSincronizado()` (limpia también el último error) y
@@ -557,19 +568,35 @@ explícitamente con el usuario en vez de asumirla.
   esto, toda la cola (conteos, reintentos, pantalla `/sync`) funciona de extremo a
   extremo desde ya, con errores honestos en vez de datos falsos.
 - `infrastructure/sync/HttpSyncGateway.ts` — implementación real sobre `fetch`, lista
-  para usarse el día que exista un backend: recibe una `baseUrl` en el constructor y hace
-  `POST ${baseUrl}/asistencias` con el `AsistenciaDTO`. **Limitación conocida:** manda
-  `fotoUri` tal cual (ruta local o `data:` URI), no el archivo — subir la foto en sí
-  depende de un contrato que todavía no existe, así que no tiene sentido diseñarlo a
-  ciegas. Integrar esto es cambiar una sola línea en `syncStore.ts`
-  (`new UnconfiguredSyncGateway()` → `new HttpSyncGateway(urlReal)`); todo lo demás ya
-  está construido.
+  para usarse en cuanto `hkc-backend/` esté desplegado en el Mac mini: recibe `baseUrl`
+  y `apiKey` en el constructor y hace `POST ${baseUrl}/api/asistencias` con el
+  `AsistenciaSyncPayload`, autenticado (`Authorization: Bearer <apiKey>`, una key por
+  dispositivo — ver `hkc-backend/BACKEND_ARCHITECTURE.md`). **Limitación conocida:**
+  manda `fotoUri` tal cual (ruta local o `data:` URI), no el archivo — subir la foto en
+  sí queda pendiente. Integrar esto es cambiar una línea en `syncStore.ts`
+  (`new UnconfiguredSyncGateway()` → `new HttpSyncGateway(urlReal, apiKey)`); todo lo
+  demás ya está construido.
 - `application/useCases/SincronizarAsistenciasUseCase.ts` — procesa la cola
-  secuencialmente (no en paralelo, más simple y no satura un backend real cuando exista),
-  acepta un callback `onProgreso(procesados, total)` para progreso en vivo, y un fallo en
-  un registro no detiene a los demás.
+  secuencialmente (no en paralelo, más simple y no satura un backend real cuando exista).
+  Depende también de `ITrabajadorRepository`/`IProyectoRepository` (mismo patrón que
+  `ObtenerHistorialUseCase`) para armar el `AsistenciaSyncPayload` denormalizado antes
+  de enviarlo. Acepta un callback `onProgreso(procesados, total)` para progreso en vivo,
+  y un fallo en un registro no detiene a los demás.
 - `application/useCases/ObtenerEstadoSincronizacionUseCase.ts` — conteo rápido
   (pendientes / con error) sin correr una sincronización, para mostrar en pantalla.
+
+### Backend (`hkc-backend/`)
+
+Proyecto npm separado, hermano de `asistencia-hkc/` en el mismo repositorio. Nace de
+una conversación explícita con el usuario sobre la visión completa del sistema: app
+móvil (Android/iOS, distribución interna) para registrar asistencia + portal web para
+RH + un backend corriendo en el Mac mini de la empresa, accesible por internet, del
+que sincronizan los teléfonos y del que lee el portal. Ver
+`hkc-backend/BACKEND_ARCHITECTURE.md` para el diseño completo (stack Node.js +
+TypeScript + Express + SQLite/`better-sqlite3`, mismo patrón de migraciones
+versionadas que el cliente, autenticación por API key de dispositivo). Hoy solo tiene
+el endpoint de sincronización (`POST /api/asistencias`); la lectura para el portal RH
+y el despliegue real en el Mac mini quedan para la siguiente iteración.
 - `store/syncStore.ts` — reemplaza el mock anterior de `sync.tsx` (una barra de progreso
   con `setInterval` que no tocaba datos reales). Persiste `ultima_sincronizacion` en
   `configuracion_dispositivo` (SQLite, mismo mecanismo que el resto de la app) para que
