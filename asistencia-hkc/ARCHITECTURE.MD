@@ -584,19 +584,6 @@ explícitamente con el usuario en vez de asumirla.
   y un fallo en un registro no detiene a los demás.
 - `application/useCases/ObtenerEstadoSincronizacionUseCase.ts` — conteo rápido
   (pendientes / con error) sin correr una sincronización, para mostrar en pantalla.
-
-### Backend (`hkc-backend/`)
-
-Proyecto npm separado, hermano de `asistencia-hkc/` en el mismo repositorio. Nace de
-una conversación explícita con el usuario sobre la visión completa del sistema: app
-móvil (Android/iOS, distribución interna) para registrar asistencia + portal web para
-RH + un backend corriendo en el Mac mini de la empresa, accesible por internet, del
-que sincronizan los teléfonos y del que lee el portal. Ver
-`hkc-backend/BACKEND_ARCHITECTURE.md` para el diseño completo (stack Node.js +
-TypeScript + Express + SQLite/`better-sqlite3`, mismo patrón de migraciones
-versionadas que el cliente, autenticación por API key de dispositivo). Hoy solo tiene
-el endpoint de sincronización (`POST /api/asistencias`); la lectura para el portal RH
-y el despliegue real en el Mac mini quedan para la siguiente iteración.
 - `store/syncStore.ts` — reemplaza el mock anterior de `sync.tsx` (una barra de progreso
   con `setInterval` que no tocaba datos reales). Persiste `ultima_sincronizacion` en
   `configuracion_dispositivo` (SQLite, mismo mecanismo que el resto de la app) para que
@@ -626,6 +613,31 @@ Pantalla existente con datos de ejemplo ("Registros guardados: 10", "Capacidad r
 `router.push("/offline")` en el código). Se dejó fuera del alcance de esta iteración por
 no ser parte del flujo real; si se decide usarla, debería conectarse a
 `ObtenerEstadoSincronizacionUseCase` igual que `/sync`.
+
+### Backend (`hkc-backend/`) y Portal RH (`hkc-rh-portal/`)
+
+Dos proyectos npm separados, hermanos de `asistencia-hkc/` en el mismo repositorio.
+Nacen de una conversación explícita con el usuario sobre la visión completa del
+sistema: app móvil (Android/iOS, distribución interna) para registrar asistencia +
+portal web para RH + un backend corriendo en el Mac mini de la empresa, accesible por
+internet, del que sincronizan los teléfonos y del que lee el portal.
+
+- **`hkc-backend/`** — Node.js + TypeScript + Express + SQLite (`better-sqlite3`),
+  mismo patrón de migraciones versionadas que el cliente. Expone
+  `POST /api/asistencias` (sincronización, API key de dispositivo),
+  `POST /api/auth/login` y `GET /api/asistencias(/export.csv)` (lectura para RH, JWT).
+  Ver `hkc-backend/BACKEND_ARCHITECTURE.md` para el diseño completo y la guía de
+  despliegue en el Mac mini.
+- **`hkc-rh-portal/`** — React + Vite, SPA que consume esa API. Login, tabla
+  filtrable por fecha (con búsqueda local por nombre/proyecto, ver la nota de
+  denormalización) y descarga de CSV. Ver `hkc-rh-portal/PORTAL_ARCHITECTURE.md`.
+  Se eligió como proyecto aparte (no como rutas web nuevas dentro de esta app Expo,
+  que también compila a web) para no arrastrarle a RH todo el stack de la app móvil
+  (cámara, SQLite, Campo/Kiosco) que no necesita.
+
+Pendiente en ambos: desplegar `hkc-backend` de verdad en el Mac mini (bloqueado por
+ahora — sin acceso remoto disponible en la última sesión) y apuntar `HttpSyncGateway`
+del cliente + `VITE_API_URL` del portal a la URL real una vez que eso pase.
 
 ---
 
