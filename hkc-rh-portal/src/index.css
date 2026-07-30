@@ -173,6 +173,37 @@ label {
   width: 100%;
 }
 
+.resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.resumen-chip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 96px;
+}
+
+.resumen-valor {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.resumen-etiqueta {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+}
+
 .tabla-wrapper {
   background: var(--card);
   border: 1px solid var(--border);

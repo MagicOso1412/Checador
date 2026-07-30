@@ -142,6 +142,25 @@ Dos mecanismos deliberadamente distintos, uno por tipo de cliente:
 | POST | `/api/asistencias` | API key de dispositivo | Recibe un `AsistenciaSyncPayload`. Idempotente por `id`: si ya existe, responde `200` sin duplicar (un dispositivo puede reintentar un envío que sí llegó pero cuya respuesta no recibió). |
 | GET | `/api/asistencias` | Sesión RH (JWT) | Lectura filtrable: `?proyectoId=&trabajadorId=&desde=&hasta=&limite=` (todos opcionales; `desde`/`hasta` en ISO 8601). Devuelve `{ total, registros }`. |
 | GET | `/api/asistencias/export.csv` | Sesión RH (JWT) | Mismo filtro que el anterior, como descarga CSV — el "ver o descargar" que RH necesita. |
+| GET | `/api/asistencias/export.xlsx` | Sesión RH (JWT) | Mismo filtro y mismas columnas que `export.csv`, como libro de Excel (`lib/excel.ts`, ver nota de dependencias abajo). |
+
+---
+
+## Dependencias — nota de seguridad (`xlsx`)
+
+`npm audit` marca 1 advisory "high" en `xlsx` (Prototype Pollution y ReDoS,
+GHSA-4r6h-8v6p-xvw6 / GHSA-5pgg-2g8v-p4x9), sin parche publicado en el registro de
+npm — SheetJS dejó de publicar ahí y mueve sus versiones parchadas a su propio CDN.
+Se evaluó y **no aplica al uso que le da este backend**: ambas vulnerabilidades
+viven en el parser (`XLSX.read`/`XLSX.readFile`), y este proyecto nunca lee un
+archivo Excel — solo escribe uno (`XLSX.write`) a partir de datos que ya vienen de
+nuestra propia base de datos (`lib/excel.ts`). Se prefirió sobre `exceljs` (la
+alternativa más popular) porque `exceljs` arrastra `archiver` → `glob 7` →
+`minimatch`/`brace-expansion` desactualizados, con 9 advisories "high" en su árbol
+de dependencias (200 paquetes instalados) contra 1 sola advisory de `xlsx` (0
+dependencias, 1 paquete). Mismo criterio ya aplicado a `react-router-dom` en
+`hkc-rh-portal/PORTAL_ARCHITECTURE.md`: evaluar si el advisory aplica al patrón de
+uso real, no solo a si `npm audit` reporta algo.
 
 ---
 
@@ -214,10 +233,9 @@ Guía de referencia — ajusta según lo que ya tengan configurado en la máquin
 
 ## Siguientes pasos sugeridos (fuera de este documento)
 
-- **Portal web RH:** consumir `POST /api/auth/login` y `GET /api/asistencias(/export.csv)`.
-  Como `asistencia-hkc` ya compila a web (Expo Router + Metro), es una opción construirlo
-  como rutas nuevas dentro del mismo proyecto cliente en vez de un proyecto aparte — a
-  decidir cuando se aborde esa pieza.
+- **Portal web RH:** ✅ construido como proyecto aparte, `hkc-rh-portal/` — consume
+  `POST /api/auth/login` y `GET /api/asistencias(/export.csv|/export.xlsx)`. Ver
+  `hkc-rh-portal/PORTAL_ARCHITECTURE.md`.
 - **Distribución móvil (Android/iOS), interna, sin tiendas públicas** (decisión ya
   tomada con el usuario):
   - Android: `eas build --platform android --profile preview` (o el perfil que se

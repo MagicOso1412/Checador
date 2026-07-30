@@ -59,13 +59,8 @@ export async function obtenerAsistencias(
   return manejarRespuesta<AsistenciasResponse>(response);
 }
 
-/**
- * Descarga el CSV filtrado y dispara el guardado en el navegador (mismo
- * patrón que `infrastructure/export/exportService.ts` del cliente móvil en
- * web: `Blob` + link temporal).
- */
-export async function descargarAsistenciasCsv(token: string, filtros: FiltrosAsistencias): Promise<void> {
-  const response = await fetch(`${API_URL}/api/asistencias/export.csv${armarQuery(filtros)}`, {
+async function descargarArchivo(url: string, token: string, nombreArchivo: string): Promise<void> {
+  const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -75,12 +70,36 @@ export async function descargarAsistenciasCsv(token: string, filtros: FiltrosAsi
   }
 
   const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
+  const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = url;
-  link.download = `asistencias_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.href = objectUrl;
+  link.download = nombreArchivo;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(objectUrl);
+}
+
+/**
+ * Descarga el CSV filtrado y dispara el guardado en el navegador (mismo
+ * patrón que `infrastructure/export/exportService.ts` del cliente móvil en
+ * web: `Blob` + link temporal).
+ */
+export async function descargarAsistenciasCsv(token: string, filtros: FiltrosAsistencias): Promise<void> {
+  const fecha = new Date().toISOString().slice(0, 10);
+  await descargarArchivo(
+    `${API_URL}/api/asistencias/export.csv${armarQuery(filtros)}`,
+    token,
+    `asistencias_${fecha}.csv`,
+  );
+}
+
+/** Igual que `descargarAsistenciasCsv`, pero el `.xlsx` que genera el backend (`lib/excel.ts`). */
+export async function descargarAsistenciasExcel(token: string, filtros: FiltrosAsistencias): Promise<void> {
+  const fecha = new Date().toISOString().slice(0, 10);
+  await descargarArchivo(
+    `${API_URL}/api/asistencias/export.xlsx${armarQuery(filtros)}`,
+    token,
+    `asistencias_${fecha}.xlsx`,
+  );
 }

@@ -35,7 +35,9 @@ hkc-rh-portal/
   src/
     api/
       types.ts     — copia manual de los tipos de respuesta de hkc-backend
-      client.ts     — funciones fetch (login, obtenerAsistencias, descargarCsv) + ApiError
+      client.ts     — funciones fetch (login, obtenerAsistencias, descargarCsv/Excel) + ApiError
+    lib/
+      estadisticas.ts  — resumen en memoria sobre los registros ya cargados
     context/
       AuthContext.tsx  — sesión (JWT + usuario) persistida en localStorage
     components/
@@ -81,6 +83,31 @@ endpoint de búsqueda por texto en el backend.
 
 ---
 
+## Resumen y exportación a Excel (Sprint 6)
+
+- `lib/estadisticas.ts` — `calcularResumen()` cuenta totales, trabajadores/proyectos
+  únicos y desglose por tipo de movimiento, sobre `registros` (todo el rango de
+  fechas ya filtrado por el backend), no sobre `filtrados` (el subconjunto de la
+  búsqueda local de la tabla) — la búsqueda es para encontrar una fila, no para
+  redefinir de qué habla el resumen. `DashboardPage.tsx` lo pinta como una fila de
+  chips arriba de la tabla, mismo lenguaje visual que el "Resumen" del historial en
+  la app móvil.
+- **Excel**: se agregó `GET /api/asistencias/export.xlsx` en `hkc-backend` (mismas
+  columnas y mismo filtro que `export.csv`, ver `hkc-backend/BACKEND_ARCHITECTURE.md`
+  y `hkc-backend/src/lib/excel.ts`). El portal solo agrega
+  `descargarAsistenciasExcel()` en `api/client.ts` (mismo patrón `Blob` + link
+  temporal que ya usaba el CSV) y un segundo botón en `DashboardPage.tsx`. No se
+  generó el `.xlsx` en el navegador a propósito: el backend ya es la fuente de
+  verdad para reportes (mismo query, mismo límite de filas) y así CSV/Excel nunca
+  pueden divergir entre sí por un bug de un solo lado.
+- **PDF** (mencionado en el roadmap original de Sprint 6) se dejó fuera de esta
+  iteración: no hay todavía un caso de uso concreto para PDF que CSV/Excel no
+  cubran (RH pidió "descargar o visualizar", no un documento con membrete) — se
+  retoma si surge un requisito real (por ejemplo, un recibo o constancia
+  individual, donde sí importa el formato impreso).
+
+---
+
 ## Dependencias — nota de seguridad
 
 `npm audit` marca una advisory de severidad alta en `react-router` (RSC Mode CSRF
@@ -121,13 +148,16 @@ backend real.
 
 ## Estado
 
-Funcional: login, lista filtrable, descarga CSV. **No verificado end-to-end en un
-entorno con backend corriendo** — el sandbox de desarrollo no pudo compilar el
-binario nativo de `better-sqlite3` (bloqueo de red, ver `hkc-backend/README.md`), así
-que la validación de este proyecto fue por tipos (`tsc --noEmit`, limpio) y build de
-producción (`vite build`, exitoso), no por una prueba manual de la UI contra un
-backend real. Vale la pena una prueba manual completa (login real, datos reales) en
-cuanto el backend esté desplegado.
+Funcional: login, lista filtrable, resumen, descarga CSV y Excel. **No verificado
+end-to-end en un entorno con backend corriendo** — el sandbox de desarrollo no pudo
+compilar el binario nativo de `better-sqlite3` (bloqueo de red, ver
+`hkc-backend/README.md`), así que la validación de este proyecto fue por tipos
+(`tsc --noEmit`, limpio en ambos proyectos) — `vite build` transforma los módulos
+sin errores, pero no llega a terminar en este entorno por otra limitación del
+mismo sandbox (no puede vaciar un `dist/` existente, `EPERM: operation not
+permitted, unlink`; no es un error del código). Vale la pena una prueba manual
+completa (login real, datos reales, descarga de ambos formatos) en cuanto el
+backend esté desplegado o corriendo en una máquina con permisos normales.
 
 Pendiente: nada más falta para lo pedido (login, ver, descargar). Mejoras futuras
 razonables: paginación si el volumen de registros crece mucho, gráficas/resumen

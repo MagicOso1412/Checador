@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ApiError, descargarAsistenciasCsv, obtenerAsistencias } from "../api/client";
+import { ApiError, descargarAsistenciasCsv, descargarAsistenciasExcel, obtenerAsistencias } from "../api/client";
 import type { AsistenciaRow } from "../api/types";
 import { useAuth } from "../context/AuthContext";
+import { calcularResumen } from "../lib/estadisticas";
 
 const ETIQUETAS_TIPO: Record<AsistenciaRow["tipo_registro"], string> = {
   ENTRADA: "Entrada",
@@ -23,7 +24,7 @@ export function DashboardPage() {
   const [registros, setRegistros] = useState<AsistenciaRow[]>([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [descargando, setDescargando] = useState(false);
+  const [descargando, setDescargando] = useState<"csv" | "xlsx" | null>(null);
 
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
@@ -72,16 +73,25 @@ export function DashboardPage() {
     );
   }, [registros, busqueda]);
 
-  const handleDescargar = async () => {
+  // Sobre `registros` (todo el rango de fechas filtrado), no sobre
+  // `filtrados` (búsqueda local de la tabla) — ver nota en `lib/estadisticas.ts`.
+  const resumen = useMemo(() => calcularResumen(registros), [registros]);
+
+  const handleDescargar = async (formato: "csv" | "xlsx") => {
     if (!token) return;
-    setDescargando(true);
+    setDescargando(formato);
     setError(null);
     try {
-      await descargarAsistenciasCsv(token, { desde: desde || undefined, hasta: hasta || undefined });
+      const filtros = { desde: desde || undefined, hasta: hasta || undefined };
+      if (formato === "csv") {
+        await descargarAsistenciasCsv(token, filtros);
+      } else {
+        await descargarAsistenciasExcel(token, filtros);
+      }
     } catch (err) {
       manejarErrorApi(err);
     } finally {
-      setDescargando(false);
+      setDescargando(null);
     }
   };
 
@@ -131,12 +141,24 @@ export function DashboardPage() {
           />
         </div>
 
-        <button type="button" className="secondary" onClick={handleDescargar} disabled={descargando}>
-          {descargando ? "Descargando…" : "Descargar CSV"}
+        <button type="button" className="secondary" onClick={() => handleDescargar("csv")} disabled={descargando !== null}>
+          {descargando === "csv" ? "Descargando…" : "Descargar CSV"}
+        </button>
+        <button type="button" className="secondary" onClick={() => handleDescargar("xlsx")} disabled={descargando !== null}>
+          {descargando === "xlsx" ? "Descargando…" : "Descargar Excel"}
         </button>
       </section>
 
       {error ? <p className="error-text">{error}</p> : null}
+
+      <section className="resumen">
+        <ResumenChip etiqueta="Total" valor={resumen.total} />
+        <ResumenChip etiqueta="Trabajadores" valor={resumen.trabajadoresUnicos} />
+        <ResumenChip etiqueta="Proyectos" valor={resumen.proyectosUnicos} />
+        <ResumenChip etiqueta="Entradas" valor={resumen.porTipo.ENTRADA} />
+        <ResumenChip etiqueta="Salidas" valor={resumen.porTipo.SALIDA} />
+        <ResumenChip etiqueta="Comida (inicio/fin)" valor={resumen.porTipo.INICIO_COMIDA + resumen.porTipo.FIN_COMIDA} />
+      </section>
 
       <section className="tabla-wrapper">
         {cargando ? (
@@ -172,6 +194,15 @@ export function DashboardPage() {
       </section>
 
       <p className="total-registros">{filtrados.length} de {registros.length} registros mostrados</p>
+    </div>
+  );
+}
+
+function ResumenChip({ etiqueta, valor }: { etiqueta: string; valor: number }) {
+  return (
+    <div className="resumen-chip">
+      <span className="resumen-valor">{valor}</span>
+      <span className="resumen-etiqueta">{etiqueta}</span>
     </div>
   );
 }

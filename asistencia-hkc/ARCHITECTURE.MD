@@ -734,5 +734,15 @@ expiración de sesión.
 - Captura de múltiples fotografías por trabajador, generación de embeddings,
   reconocimiento facial offline, modo kiosco completamente automático.
 
-### Sprint 6 — Reportes
-- Dashboard para RH, reportes, exportación a Excel/PDF, estadísticas.
+### Sprint 6 — Reportes (en curso)
+- ✅ Dashboard para RH: resumen (total, trabajadores/proyectos únicos, por tipo de
+  movimiento) sobre el rango de fechas filtrado — `hkc-rh-portal/src/lib/estadisticas.ts`.
+- ✅ Exportación a Excel — `GET /api/asistencias/export.xlsx` en `hkc-backend` +
+  botón "Descargar Excel" en el portal, mismo filtro y columnas que el CSV
+  existente. Ver `hkc-backend/BACKEND_ARCHITECTURE.md` y
+  `hkc-rh-portal/PORTAL_ARCHITECTURE.md`.
+- ⬜ Exportación a PDF — deliberadamente fuera de alcance por ahora: no hay un caso
+  de uso concreto todavía (CSV/Excel ya cubren "ver o descargar"); se retoma si
+  surge un requisito de documento con formato fijo (ej. constancia individual).
+- ⬜ Verificación end-to-end contra un backend real corriendo (sigue bloqueada por
+  el mismo motivo que Sprint 4: el sandbox no puede compilar `better-sqlite3`).

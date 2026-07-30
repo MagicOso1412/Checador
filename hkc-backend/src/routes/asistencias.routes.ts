@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { getDatabase } from "../db/db";
-import { buscarAsistencias, type FiltrosAsistencias } from "../db/asistenciasQueries";
+import { buscarAsistencias, type AsistenciaRow, type FiltrosAsistencias } from "../db/asistenciasQueries";
 import { esAsistenciaSyncPayloadValido } from "../dto/AsistenciaSyncPayload";
 import { generarCsv } from "../lib/csv";
+import { generarExcel } from "../lib/excel";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { jwtAuth } from "../middleware/jwtAuth";
 
@@ -95,6 +96,36 @@ asistenciasRouter.get("/api/asistencias", jwtAuth, (req, res) => {
   res.json({ total: registros.length, registros });
 });
 
+const ENCABEZADOS_REPORTE = [
+  "Trabajador",
+  "Número de empleado",
+  "Proyecto",
+  "Tipo de registro",
+  "Fecha",
+  "Hora",
+  "Dispositivo",
+];
+
+/**
+ * Convierte filas crudas de la tabla a las columnas ya formateadas que
+ * comparten el CSV y el Excel — un solo lugar que conoce cómo se ve una fila
+ * de reporte, para que ambos formatos no puedan divergir por accidente.
+ */
+function filasParaReporte(registros: AsistenciaRow[]): string[][] {
+  return registros.map((r) => {
+    const fecha = new Date(r.fecha_hora);
+    return [
+      r.trabajador_nombre,
+      r.numero_empleado,
+      r.proyecto_nombre,
+      ETIQUETAS_TIPO_REGISTRO[r.tipo_registro] ?? r.tipo_registro,
+      fecha.toLocaleDateString("es-MX"),
+      fecha.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
+      r.dispositivo_id ?? "—",
+    ];
+  });
+}
+
 /**
  * Mismo filtro que el endpoint anterior, pero como descarga CSV — el "ver o
  * descargar" que RH necesita según la visión del proyecto. Mismo generador
@@ -103,25 +134,27 @@ asistenciasRouter.get("/api/asistencias", jwtAuth, (req, res) => {
 asistenciasRouter.get("/api/asistencias/export.csv", jwtAuth, (req, res) => {
   const filtros = leerFiltros(req.query as Record<string, unknown>);
   const registros = buscarAsistencias(filtros);
-
-  const csv = generarCsv(
-    ["Trabajador", "Número de empleado", "Proyecto", "Tipo de registro", "Fecha", "Hora", "Dispositivo"],
-    registros.map((r) => {
-      const fecha = new Date(r.fecha_hora);
-      return [
-        r.trabajador_nombre,
-        r.numero_empleado,
-        r.proyecto_nombre,
-        ETIQUETAS_TIPO_REGISTRO[r.tipo_registro] ?? r.tipo_registro,
-        fecha.toLocaleDateString("es-MX"),
-        fecha.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
-        r.dispositivo_id ?? "—",
-      ];
-    }),
-  );
+  const csv = generarCsv(ENCABEZADOS_REPORTE, filasParaReporte(registros));
 
   const fecha = new Date().toISOString().slice(0, 10);
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="asistencias_${fecha}.csv"`);
   res.send(csv);
+});
+
+/**
+ * Mismo filtro y mismas columnas que `export.csv`, como libro de Excel
+ * (`.xlsx`) — lo que pidió el usuario para Sprint 6 ("exportación
+ * Excel/PDF"). Ver `lib/excel.ts` para la nota de por qué se eligió `xlsx`
+ * sobre `exceljs`.
+ */
+asistenciasRouter.get("/api/asistencias/export.xlsx", jwtAuth, (req, res) => {
+  const filtros = leerFiltros(req.query as Record<string, unknown>);
+  const registros = buscarAsistencias(filtros);
+  const buffer = generarExcel(ENCABEZADOS_REPORTE, filasParaReporte(registros));
+
+  const fecha = new Date().toISOString().slice(0, 10);
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="asistencias_${fecha}.xlsx"`);
+  res.send(buffer);
 });
