@@ -126,7 +126,7 @@ export default function ModeSelectScreen() {
         <FooterTab
           icon={<Shield size={20} color={palette.mutedForeground} />}
           label="Admin"
-          onPress={() => router.push("/admin")}
+          onPress={() => router.push("/admin-pin")}
         />
         <FooterTab
           icon={<Settings size={20} color={palette.mutedForeground} />}

@@ -639,6 +639,42 @@ Pendiente en ambos: desplegar `hkc-backend` de verdad en el Mac mini (bloqueado 
 ahora — sin acceso remoto disponible en la última sesión) y apuntar `HttpSyncGateway`
 del cliente + `VITE_API_URL` del portal a la URL real una vez que eso pase.
 
+## PIN de administrador del dispositivo (Sprint 3)
+
+Hasta esta iteración, la pantalla `/admin` mostraba la etiqueta "Acceso restringido ·
+Admin" sin ningún candado real detrás — cualquiera que tocara el botón "Admin" en
+`mode-select.tsx` entraba directo. Se corrigió agregando un PIN local por dispositivo.
+
+**Por qué esto no es lo mismo que el login de RH.** `hkc-rh-portal` tiene
+usuario/contraseña + JWT porque protege datos de *toda la empresa*, accedidos
+remotamente, con bcrypt del lado del servidor. El PIN de `/admin-pin` protege la
+configuración de *un aparato físico* (qué proyecto tiene asignado, altas/bajas de
+trabajadores y proyectos, ajustes de sincronización) de que cualquiera que tenga la
+tablet en la mano la toque — es un candado de operador, no un sistema de identidad de
+personas. Por eso es intencionalmente más simple: un PIN numérico, sin backend, sin
+expiración de sesión.
+
+- `infrastructure/security/pinService.ts` — hashea el PIN con SHA-256 (`expo-crypto`,
+  ya dependencia del proyecto) más un salt fijo de la app, y lo guarda en
+  `configuracion_dispositivo` (clave `admin_pin_hash`) vía el storage SQLite existente,
+  no AsyncStorage. Documentado explícitamente como criptografía proporcional a la
+  amenaza real (alguien que agarra la tablet), no equivalente al bcrypt del backend —
+  no debe reutilizarse para proteger nada más sensible.
+- `store/adminPinStore.ts` — Zustand store delgado sobre ese servicio
+  (`tienePin`, `verificarEstado()`, `configurar()`, `verificar()`, `cambiar()`). Llama
+  directo a infraestructura sin una capa de use cases de por medio, mismo criterio que
+  `configuracionStore`: es una responsabilidad de dispositivo, no de dominio de negocio.
+- `app/admin-pin.tsx` — pantalla única con tres modos según el estado: si no hay PIN
+  configurado pide crear uno (nuevo + confirmar); si ya existe, pide ese PIN; con
+  `?modo=cambiar` (botón "Cambiar PIN" dentro de `admin.tsx`) pide el PIN actual más uno
+  nuevo. `mode-select.tsx` navega a `/admin-pin` en vez de a `/admin` directamente; el
+  propio `admin-pin.tsx` hace `router.replace("/admin")` al validar.
+- **Sin recuperación de "olvidé mi PIN".** Es una limitación conocida y aceptada: el
+  único recurso hoy es borrar los datos locales de la app (el PIN vive solo en SQLite
+  del dispositivo, no hay respaldo en la nube). Si esto se vuelve un problema operativo
+  real, la solución futura sería un PIN maestro de soporte generado por el backend, no
+  algo que valga la pena construir antes de tener el backend real desplegado.
+
 ---
 
 ## Roadmap
@@ -677,6 +713,8 @@ del cliente + `VITE_API_URL` del portal a la URL real una vez que eso pase.
   web: descarga de navegador) — ver "Exportación de asistencias a CSV" más arriba.
 - ✅ Dashboard local — resumen (total, sincronizados/pendientes, por tipo de movimiento)
   sobre el historial — ver "Dashboard local" más arriba.
+- ✅ PIN de administrador del dispositivo — ver "PIN de administrador del dispositivo"
+  más arriba.
 
 ### Sprint 4 — Sincronización (arquitectura cliente lista, en curso)
 - ✅ Cola de sincronización local completa: dominio (`ISyncGateway`, columnas de

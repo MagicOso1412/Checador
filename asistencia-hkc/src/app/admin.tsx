@@ -8,6 +8,7 @@ import {
   Clock,
   HardDrive,
   Info,
+  Lock,
   LogOut,
   Navigation,
   RefreshCw,
@@ -172,6 +173,14 @@ export default function AdminScreen() {
           <Text className="text-sm font-semibold text-primary-foreground">
             Actualizar configuración
           </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push("/admin-pin?modo=cambiar")}
+          className="flex-row items-center justify-center gap-2 rounded-xl bg-card py-3.5"
+          style={({ pressed }) => [{ borderWidth: 1, borderColor: palette.border }, pressed && { opacity: 0.9 }]}
+        >
+          <Lock size={16} color={palette.mutedForeground} />
+          <Text className="text-sm font-semibold text-foreground">Cambiar PIN</Text>
         </Pressable>
         <Pressable
           onPress={() => router.replace("/mode-select")}
