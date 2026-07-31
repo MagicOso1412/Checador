@@ -8,9 +8,42 @@ import { ScreenHeader } from "@/components/attendance/screen-header";
 import { palette } from "@/constants/palette";
 import { shadowSm } from "@/constants/shadows";
 import type { FotoReferenciaFacial } from "@/domain/entities/FotoReferenciaFacial";
-import type { SavedPhoto } from "@/infrastructure/camera/cameraService";
+import { esArchivoDeFotoValido, type SavedPhoto } from "@/infrastructure/camera/cameraService";
 import { MAXIMO_FOTOS_POR_TRABAJADOR, useFotosReferenciaStore } from "@/store/fotosReferenciaStore";
 import { useTrabajadoresAdminStore } from "@/store/trabajadoresAdminStore";
+
+/**
+ * Guía de pose por número de foto (0-indexado por cuántas ya existen). Pura
+ * UI — no valida nada, solo sugiere variedad de ángulo/luz/accesorios, que es
+ * justo lo que un futuro motor de reconocimiento necesita para ser
+ * confiable (ver la nota de "varias muestras" en la migración 008).
+ */
+const GUIAS_POSE = [
+  "De frente, mirando directo a la cámara",
+  "Gira un poco el rostro hacia la izquierda",
+  "Gira un poco el rostro hacia la derecha",
+  "Busca buena luz, sin sombras fuertes en la cara",
+  "Con lentes o gorra, si los usas normalmente en obra",
+];
+
+function GuiaEncuadre({ indice, total }: { indice: number; total: number }) {
+  return (
+    <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
+      <View
+        className="rounded-full border-2 border-dashed"
+        style={{ width: 190, height: 240, borderColor: palette.white50 }}
+      />
+      <View className="absolute bottom-8 left-6 right-6 items-center rounded-xl bg-black/50 px-3 py-2">
+        <Text className="text-center text-xs font-semibold text-white">
+          Foto {indice + 1} de {total}
+        </Text>
+        <Text className="mt-0.5 text-center text-xs" style={{ color: palette.white70 }}>
+          {GUIAS_POSE[indice] ?? "Encuadra tu rostro dentro del óvalo"}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 /**
  * Captura y gestión de fotos de referencia de un trabajador (Sprint 5,
@@ -35,6 +68,17 @@ export default function FotosReferenciaScreen() {
   }, [trabajadorId]);
 
   const handleCaptured = async (photo: SavedPhoto) => {
+    const valida = await esArchivoDeFotoValido(photo.uri);
+    if (!valida) {
+      Alert.alert(
+        "Foto no válida",
+        "La cámara no guardó la foto correctamente. Vuelve a intentarlo.",
+        [{ text: "Reintentar", onPress: () => setMostrandoCamara(true) }],
+      );
+      setMostrandoCamara(false);
+      return;
+    }
+
     setMostrandoCamara(false);
     try {
       await capturarFoto(trabajadorId, photo.uri);
@@ -53,7 +97,10 @@ export default function FotosReferenciaScreen() {
   if (mostrandoCamara) {
     return (
       <View className="flex-1 bg-[#06080f]">
-        <CameraCapture onCaptured={handleCaptured} />
+        <CameraCapture
+          onCaptured={handleCaptured}
+          overlay={<GuiaEncuadre indice={fotos.length} total={MAXIMO_FOTOS_POR_TRABAJADOR} />}
+        />
       </View>
     );
   }

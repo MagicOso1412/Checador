@@ -172,6 +172,34 @@ Los archivos del patrón anterior (`repositories/trabajadorRepository.ts`,
   `mapTipoRegistroToLabel` (dominio → UI), para traducir entre las etiquetas en español
   que usa la UI (`MOVEMENT_TYPES` de `lib/mock-data.ts`) y el enum `TipoRegistro`.
 
+### Bug corregido: cancelar durante "Guardando…" dejaba la app en un estado inconsistente
+
+Reportado por el usuario en Modo Kiosco: al confirmar una asistencia, mientras el botón
+mostraba "Guardando…", tocar el botón de regresar/cancelar hacía que la app "se quedara
+pensando" y había que cerrarla y volver a abrirla.
+
+**Causa real (`app/asistencia/confirmar.tsx`):** `handleConfirmar` llama
+`await registrar(...)` (escribe en SQLite) y, cuando termina, hace
+`router.push(exitoRoute)`. Pero el botón "Cancelar" (arriba y también en el pie de la
+pantalla) no tenía ningún guard contra `registrando` — se podía tocar mientras el guardado
+seguía en vuelo. Al tocarlo: `limpiar()` borraba `trabajadorSeleccionado`/`fotoUri` del
+store **mientras** el `await registrar(...)` de `handleConfirmar` seguía corriendo, y
+`router.replace(homeRoute)` navegaba de vuelta a la espera. Cuando el guardado en vuelo
+terminaba (éxito o error), su `router.push(exitoRoute)` se disparaba de todos modos,
+empujando la pantalla de éxito/error sobre una navegación que el usuario ya había
+abandonado — dejando el router en un estado que no reflejaba ninguna interacción reciente
+del usuario.
+
+**Corrección:** en vez de intentar reconciliar el estado después de la carrera, se
+eliminó la carrera: mientras `registrando` es `true`, no hay forma de salir de la
+pantalla.
+- Los dos botones "Cancelar" ahora están `disabled={registrando}` (y `handleCancelar`
+  también lo verifica de entrada, por si acaso).
+- Se agregó un listener de `BackHandler` (botón/gesto de regreso de Android) que absorbe
+  el evento (devuelve `true`) mientras `registrando` es `true`.
+- `<Stack.Screen options={{ gestureEnabled: !registrando }} />` bloquea también el gesto
+  de "deslizar para regresar" (iOS y Android) durante el guardado.
+
 ### Geolocalización
 
 `infrastructure/location/locationService.ts` — `obtenerUbicacionActual()` con
@@ -741,6 +769,23 @@ asistencia).
   el archivo físico al eliminar una foto (best-effort: si falla, el registro de todos
   modos ya se quitó de la base; un archivo huérfano es una fuga de almacenamiento
   menor, no un bug de datos).
+- **Pulido de Fase 1** (segunda iteración, sin agregar dependencias nativas):
+  - `components/CameraCapture.tsx` — se agregó un prop opcional `overlay?: ReactNode`,
+    dibujado encima del visor (nunca sobre el preview). El componente sigue sin saber
+    qué es "un rostro" ni nada de dominio — solo posiciona lo que le pasen. Sirve tanto
+    para esta pantalla como para cualquier futura necesidad de guía visual.
+  - `app/trabajadores/fotos.tsx` — usa ese `overlay` para dibujar un óvalo guía más un
+    texto que rota según cuántas fotos ya existen (`GUIAS_POSE`): "de frente", "gira a
+    la izquierda", "gira a la derecha", "busca buena luz", "con lentes/gorra si
+    aplica". Es **solo una guía visual para el humano**, no detección real — no hay
+    forma honesta de validar "esto es un rostro bien encuadrado" sin el motor de
+    reconocimiento real (fases 2-3, todavía sin librería nativa). No se debe confundir
+    con detección automática.
+  - `infrastructure/camera/cameraService.ts` — se agregó `esArchivoDeFotoValido()`: un
+    chequeo de sanidad (el archivo existe y no pesa 0 bytes), no de contenido — cubre
+    el caso raro de un glitch de cámara que deja un archivo corrupto/truncado. Se llama
+    antes de guardar el registro en `fotos.tsx`; si falla, se ofrece reintentar en vez
+    de guardar una foto de referencia inútil.
 
 ### Fase 2/3 — Detección y reconocimiento real (arquitectura lista, sin librería nativa)
 

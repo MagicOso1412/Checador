@@ -41,6 +41,27 @@ export async function verificarPermisoCamara(): Promise<boolean> {
  * memoria/el DOM, no persiste entre recargas de página — ver la nota de
  * soporte Web en ARCHITECTURE.md, el foco ahí es desarrollo/demo).
  */
+/**
+ * Chequeo de sanidad, no de contenido: confirma que el archivo guardado
+ * exista y no esté vacío (0 bytes) — cubre el caso raro de un glitch de la
+ * cámara que produce un archivo corrupto/truncado. **No detecta si hay un
+ * rostro en la foto** — eso requiere el motor de reconocimiento real, ver
+ * `application/ports/IReconocimientoFacialService.ts` y la nota de por qué
+ * no está integrado todavía. En web siempre es válido: la "foto" es una
+ * `data:` URI en memoria, no un archivo con tamaño consultable.
+ */
+export async function esArchivoDeFotoValido(uri: string): Promise<boolean> {
+  if (Platform.OS === "web") return true;
+
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+    return info.exists && info.size > 0;
+  } catch (error) {
+    console.warn("[cameraService] no se pudo verificar el archivo de foto", error);
+    return false;
+  }
+}
+
 export async function savePhoto(temporaryUri: string): Promise<SavedPhoto> {
   const fileName = `photo_${Date.now()}.jpg`;
 

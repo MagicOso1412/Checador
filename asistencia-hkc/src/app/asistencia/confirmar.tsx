@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
-import { router } from "expo-router";
+import { BackHandler, Image, Pressable, Text, View } from "react-native";
+import { router, Stack } from "expo-router";
 import { Calendar, Clock, Layers, Navigation } from "lucide-react-native";
 
 import { DetailRow, StatusPill } from "@/components/attendance/ui-rows";
@@ -57,6 +57,21 @@ export default function AttendanceConfirmScreen() {
     };
   }, [setUbicacion]);
 
+  // Bug reportado: cancelar/regresar mientras `registrando` es true corre
+  // `limpiar()` (borra trabajadorSeleccionado/fotoUri del store) al mismo
+  // tiempo que el `await registrar(...)` de handleConfirmar sigue en vuelo.
+  // Cuando ese registro termina, su `router.push(exitoRoute)` de todos
+  // modos se dispara sobre una pantalla a la que el usuario ya no quería
+  // ir, dejando la navegación en un estado inconsistente (la app "se queda
+  // pensando"). La solución no es reconciliar after-the-fact: es no dejar
+  // salir de esta pantalla mientras haya un guardado en curso, ni por el
+  // botón "Cancelar" ni por el gesto/botón de regresar del sistema.
+  useEffect(() => {
+    if (!registrando) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => true);
+    return () => subscription.remove();
+  }, [registrando]);
+
   if (!trabajadorSeleccionado || !fotoUri) {
     return <View className="flex-1 bg-background" />;
   }
@@ -70,6 +85,7 @@ export default function AttendanceConfirmScreen() {
   const exitoRoute = operationMode === "kiosco" ? "/kiosco/exito" : "/asistencia/exito";
 
   const handleCancelar = () => {
+    if (registrando) return;
     limpiar();
     router.replace(homeRoute);
   };
@@ -86,8 +102,14 @@ export default function AttendanceConfirmScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      <Stack.Screen options={{ gestureEnabled: !registrando }} />
       <View className="bg-primary px-4 pb-5 pt-14">
-        <Pressable onPress={handleCancelar} className="mb-3">
+        <Pressable
+          onPress={handleCancelar}
+          disabled={registrando}
+          className="mb-3"
+          style={({ pressed }) => [registrando && { opacity: 0.4 }, pressed && !registrando && { opacity: 0.7 }]}
+        >
           <Text className="text-sm" style={{ color: palette.white70 }}>
             ← Cancelar
           </Text>
@@ -189,8 +211,9 @@ export default function AttendanceConfirmScreen() {
       <View className="flex-row gap-3 border-t border-border p-4">
         <Pressable
           onPress={handleCancelar}
+          disabled={registrando}
           className="flex-1 items-center rounded-2xl border-2 border-border py-4"
-          style={({ pressed }) => pressed && { opacity: 0.9 }}
+          style={({ pressed }) => [registrando && { opacity: 0.4 }, pressed && !registrando && { opacity: 0.9 }]}
         >
           <Text className="font-semibold text-foreground">Cancelar</Text>
         </Pressable>

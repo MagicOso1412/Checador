@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
 import { CameraView, type CameraType, useCameraPermissions } from "expo-camera";
@@ -11,6 +12,14 @@ type Props = {
   facing?: CameraType;
   /** Se llama con la foto ya copiada a almacenamiento permanente (infrastructure/storage). */
   onCaptured: (photo: SavedPhoto) => void;
+  /**
+   * Contenido opcional dibujado encima del visor (mientras no hay preview) —
+   * p. ej. una guía visual de encuadre. Este componente sigue sin saber nada
+   * de lo que dibuja: solo lo posiciona. Quien lo use decide el contenido
+   * (ver `app/trabajadores/fotos.tsx` para la guía de pose usada en fotos de
+   * referencia).
+   */
+  overlay?: ReactNode;
 };
 
 /**
@@ -19,7 +28,7 @@ type Props = {
  * el visor, toma la foto y la persiste vía `infrastructure/camera`. Quien lo
  * use decide qué hacer con la `SavedPhoto` resultante (`onCaptured`).
  */
-export default function CameraCapture({ facing = "front", onCaptured }: Props) {
+export default function CameraCapture({ facing = "front", onCaptured, overlay }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -79,7 +88,10 @@ export default function CameraCapture({ facing = "front", onCaptured }: Props) {
         {previewUri ? (
           <Image source={{ uri: previewUri }} style={{ width: "100%", height: "100%" }} />
         ) : (
-          <CameraView ref={cameraRef} style={{ flex: 1 }} facing={facing} />
+          <>
+            <CameraView ref={cameraRef} style={{ flex: 1 }} facing={facing} />
+            {overlay}
+          </>
         )}
       </View>
 
