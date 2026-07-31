@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import type { ISyncGateway } from "@/application/gateways/ISyncGateway";
 import {
   ObtenerEstadoSincronizacionUseCase,
   type EstadoSincronizacion,
@@ -11,11 +12,13 @@ import {
 import { SQLiteAsistenciaRepository } from "@/infrastructure/repositories/SQLiteAsistenciaRepository";
 import { SQLiteProyectoRepository } from "@/infrastructure/repositories/SQLiteProyectoRepository";
 import { SQLiteTrabajadorRepository } from "@/infrastructure/repositories/SQLiteTrabajadorRepository";
+import { HttpSyncGateway } from "@/infrastructure/sync/HttpSyncGateway";
 import { UnconfiguredSyncGateway } from "@/infrastructure/sync/UnconfiguredSyncGateway";
 import {
   guardarConfigDispositivo,
   obtenerConfigDispositivo,
 } from "@/infrastructure/storage/deviceConfigStorage";
+import { CLAVE_SERVIDOR_API_KEY, CLAVE_SERVIDOR_URL } from "@/store/configuracionStore";
 
 const CLAVE_ULTIMA_SINCRONIZACION = "ultima_sincronizacion";
 
@@ -23,20 +26,25 @@ const asistenciaRepository = new SQLiteAsistenciaRepository();
 const obtenerEstadoSincronizacionUseCase = new ObtenerEstadoSincronizacionUseCase(asistenciaRepository);
 
 /**
- * Gateway usado por esta app hoy: el backend (`hkc-backend/`) todavía no
- * está desplegado en el Mac mini, así que cualquier intento de sincronizar
- * falla con un mensaje honesto en vez de fingir éxito — ver
- * `UnconfiguredSyncGateway`. El día que el backend esté corriendo, este es
- * el único lugar que hay que cambiar (a
- * `new HttpSyncGateway(urlDelServidor, apiKey)`); todo lo demás (cola,
- * reintentos, UI) ya está listo.
+ * Arma el gateway justo antes de sincronizar (no una sola vez al cargar el
+ * módulo) porque la URL/API key viven en SQLite y pueden cambiar en
+ * cualquier momento desde `/configuracion/servidor` sin reiniciar la app. Si
+ * el usuario todavía no configuró un servidor, cae en
+ * `UnconfiguredSyncGateway` — mismo comportamiento honesto de antes (falla
+ * claro, no finge éxito).
  */
-const sincronizarAsistenciasUseCase = new SincronizarAsistenciasUseCase(
-  asistenciaRepository,
-  new SQLiteTrabajadorRepository(),
-  new SQLiteProyectoRepository(),
-  new UnconfiguredSyncGateway(),
-);
+async function construirSyncGateway(): Promise<ISyncGateway> {
+  const [url, apiKey] = await Promise.all([
+    obtenerConfigDispositivo(CLAVE_SERVIDOR_URL),
+    obtenerConfigDispositivo(CLAVE_SERVIDOR_API_KEY),
+  ]);
+
+  if (!url || !apiKey) {
+    return new UnconfiguredSyncGateway();
+  }
+
+  return new HttpSyncGateway(url, apiKey);
+}
 
 interface SyncState {
   pendientes: number;
@@ -90,6 +98,13 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
     set({ sincronizando: true, error: null, progreso: { procesados: 0, total: 0 } });
     try {
+      const sincronizarAsistenciasUseCase = new SincronizarAsistenciasUseCase(
+        asistenciaRepository,
+        new SQLiteTrabajadorRepository(),
+        new SQLiteProyectoRepository(),
+        await construirSyncGateway(),
+      );
+
       const resultado = await sincronizarAsistenciasUseCase.execute((procesados, total) => {
         set({ progreso: { procesados, total } });
       });

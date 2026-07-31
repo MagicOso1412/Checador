@@ -567,15 +567,12 @@ explícitamente con el usuario en vez de asumirla.
   debe fingir que algo se sincronizó cuando en realidad no viajó a ningún lado. Gracias a
   esto, toda la cola (conteos, reintentos, pantalla `/sync`) funciona de extremo a
   extremo desde ya, con errores honestos en vez de datos falsos.
-- `infrastructure/sync/HttpSyncGateway.ts` — implementación real sobre `fetch`, lista
-  para usarse en cuanto `hkc-backend/` esté desplegado en el Mac mini: recibe `baseUrl`
-  y `apiKey` en el constructor y hace `POST ${baseUrl}/api/asistencias` con el
+- `infrastructure/sync/HttpSyncGateway.ts` — implementación real sobre `fetch`. Recibe
+  `baseUrl` y `apiKey` en el constructor y hace `POST ${baseUrl}/api/asistencias` con el
   `AsistenciaSyncPayload`, autenticado (`Authorization: Bearer <apiKey>`, una key por
   dispositivo — ver `hkc-backend/BACKEND_ARCHITECTURE.md`). **Limitación conocida:**
   manda `fotoUri` tal cual (ruta local o `data:` URI), no el archivo — subir la foto en
-  sí queda pendiente. Integrar esto es cambiar una línea en `syncStore.ts`
-  (`new UnconfiguredSyncGateway()` → `new HttpSyncGateway(urlReal, apiKey)`); todo lo
-  demás ya está construido.
+  sí queda pendiente. **Ya conectado** (ver subsección siguiente), no solo construido.
 - `application/useCases/SincronizarAsistenciasUseCase.ts` — procesa la cola
   secuencialmente (no en paralelo, más simple y no satura un backend real cuando exista).
   Depende también de `ITrabajadorRepository`/`IProyectoRepository` (mismo patrón que
@@ -590,6 +587,36 @@ explícitamente con el usuario en vez de asumirla.
   sobreviva reinicios. `admin.tsx` ("Última sync") y `sync.tsx` leen de aquí.
 - `app/sync.tsx` — reescrita con datos reales: pendientes, con error, última
   sincronización, progreso en vivo durante una corrida, y resultado de la última corrida.
+
+### Conexión con el backend real (URL + API key configurables)
+
+Con `hkc-backend` ya corriendo y probado (primero en local en la máquina del usuario,
+luego se desplegará en el Mac mini), se cerró el último hueco de Sprint 4: hasta esta
+iteración `syncStore.ts` usaba `UnconfiguredSyncGateway` siempre, sin ninguna forma de
+que un dispositivo apuntara a un servidor real desde la UI.
+
+- `store/configuracionStore.ts` — el campo "Servidor" dejó de ser un selector cosmético
+  (`Producción`/`Staging`/`Personalizado`, sin efecto real) y pasó a ser dos valores
+  reales persistidos: `servidorUrl` y `servidorApiKey` (claves `servidor_url` /
+  `servidor_api_key` en `configuracion_dispositivo`, exportadas desde este archivo para
+  que `syncStore.ts` las use sin duplicar los nombres de clave).
+- `app/configuracion/servidor.tsx` (nueva) — pantalla dedicada para capturar la URL y la
+  API key que un admin genera con `npm run crear-dispositivo` en `hkc-backend`. Aparte de
+  la lista general de ajustes (no un campo inline) porque una API key necesita más
+  espacio y un botón de "Probar conexión" (`infrastructure/sync/verificarConexionServidor.ts`,
+  un `GET /health` simple — no vive en `HttpSyncGateway` porque ese gateway solo sabe
+  enviar asistencias, no es su responsabilidad chequear salud del servidor).
+- `store/syncStore.ts` — ya no arma un único `SincronizarAsistenciasUseCase` con un
+  gateway fijo al cargar el módulo. Ahora `construirSyncGateway()` lee `servidor_url`/
+  `servidor_api_key` de SQLite **justo antes de cada sincronización** y decide entre
+  `HttpSyncGateway` (si ambos están configurados) o `UnconfiguredSyncGateway` (si no) —
+  así, cambiar la URL desde `/configuracion/servidor` tiene efecto inmediato en la
+  siguiente sincronización, sin reiniciar la app.
+- `admin.tsx` y `configuracion/index.tsx` muestran la URL real configurada (o "Sin
+  configurar") en vez del valor cosmético anterior.
+
+Con esto, Sprint 4 queda funcionalmente completo de extremo a extremo (falta solo
+desplegar `hkc-backend` en el Mac mini en vez de correrlo en local — ver Roadmap).
 
 ### Por qué no hay reintentos automáticos todavía
 
@@ -716,14 +743,17 @@ expiración de sesión.
 - ✅ PIN de administrador del dispositivo — ver "PIN de administrador del dispositivo"
   más arriba.
 
-### Sprint 4 — Sincronización (arquitectura cliente lista, en curso)
+### Sprint 4 — Sincronización ✅ (funcional de extremo a extremo)
 - ✅ Cola de sincronización local completa: dominio (`ISyncGateway`, columnas de
   seguimiento en `asistencias`), infraestructura (`UnconfiguredSyncGateway` +
-  `HttpSyncGateway` listo para conectar), use cases (`SincronizarAsistenciasUseCase`,
+  `HttpSyncGateway`), use cases (`SincronizarAsistenciasUseCase`,
   `ObtenerEstadoSincronizacionUseCase`), store y pantalla `/sync` reales — ver
   "Sincronización — cola local" más arriba.
-- ⬜ API REST real (todavía no existe un backend; `HttpSyncGateway` está listo para
-  apuntarle en cuanto lo haya).
+- ✅ API REST real: `hkc-backend` construido, probado en local (login RH, sincronización
+  de asistencias, lectura desde el portal) y conectable desde la app vía
+  `/configuracion/servidor` (URL + API key) — ver "Conexión con el backend real" más
+  arriba. Pendiente solo el despliegue en el Mac mini (Roadmap de despliegue, bloqueado
+  por acceso remoto — ver `hkc-backend/BACKEND_ARCHITECTURE.md`).
 - ⬜ Resolución de conflictos (no aplica hasta que haya un servidor con el que
   conciliar datos).
 - ⬜ Reintentos automáticos (disparador por reconexión) — ver "Por qué no hay

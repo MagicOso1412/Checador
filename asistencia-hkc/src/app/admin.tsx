@@ -35,7 +35,7 @@ type EstadoPermiso = boolean | null;
 export default function AdminScreen() {
   const { operationMode } = useAttendance();
   const proyectoSeleccionado = useProyectoStore((state) => state.proyectoSeleccionado);
-  const servidor = useConfiguracionStore((state) => state.servidor);
+  const servidorUrl = useConfiguracionStore((state) => state.servidorUrl);
   const cargarConfiguracion = useConfiguracionStore((state) => state.cargarConfiguracion);
   const ultimaSincronizacion = useSyncStore((state) => state.ultimaSincronizacion);
   const cargarEstadoSync = useSyncStore((state) => state.cargarEstado);
@@ -104,7 +104,7 @@ export default function AdminScreen() {
           <DetailRow
             icon={<Server size={15} color={palette.mutedForeground} />}
             label="Servidor"
-            value={servidor}
+            value={servidorUrl || "Sin configurar"}
           />
           <DetailRow
             icon={<Navigation size={15} color={palette.mutedForeground} />}

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { Pressable, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Bell, Globe, Image as ImageIcon, Moon, RefreshCw, Server } from "lucide-react-native";
+import { Bell, ChevronRight, Globe, Image as ImageIcon, Moon, RefreshCw, Server } from "lucide-react-native";
 
 import { ScreenHeader } from "@/components/attendance/screen-header";
 import { palette } from "@/constants/palette";
@@ -14,14 +14,13 @@ export default function SettingsScreen() {
   const {
     modoOscuro,
     idioma,
-    servidor,
+    servidorUrl,
     frecuenciaSync,
     calidadImagenes,
     alertasSync,
     cargarConfiguracion,
     setModoOscuro,
     setIdioma,
-    setServidor,
     setFrecuenciaSync,
     setCalidadImagenes,
     setAlertasSync,
@@ -52,14 +51,26 @@ export default function SettingsScreen() {
           />
         </SettingsGroup>
 
-        <SettingsGroup title="Conexión (Sprint 4 — sincronización aún no implementada)">
-          <SettingsSelect
-            icon={<Server size={16} color={palette.mutedForeground} />}
-            label="Servidor"
-            value={servidor}
-            options={["Producción", "Staging", "Personalizado"]}
-            onChange={setServidor}
-          />
+        <SettingsGroup title="Conexión">
+          <Pressable
+            onPress={() => router.push("/configuracion/servidor")}
+            className="flex-row items-center justify-between px-4 py-3.5"
+            style={({ pressed }) => pressed && { opacity: 0.7 }}
+          >
+            <View className="flex-row items-center gap-3">
+              <Server size={16} color={palette.mutedForeground} />
+              <Text className="text-sm text-foreground">Servidor</Text>
+            </View>
+            <View className="flex-row items-center gap-1.5">
+              <Text
+                className="max-w-[160px] text-sm font-medium text-primary"
+                numberOfLines={1}
+              >
+                {servidorUrl || "Sin configurar"}
+              </Text>
+              <ChevronRight size={16} color={palette.mutedForeground} />
+            </View>
+          </Pressable>
           <SettingsSelect
             icon={<RefreshCw size={16} color={palette.mutedForeground} />}
             label="Frecuencia de sync"
