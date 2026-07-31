@@ -704,6 +704,83 @@ expiración de sesión.
 
 ---
 
+## Reconocimiento facial (Sprint 5)
+
+"Escalabilidad para reconocimiento facial" fue un principio de diseño desde el día 1
+(ver arriba), pero requiere módulos nativos (frame processors de cámara + un modelo de
+ML corriendo en el dispositivo) que este entorno de desarrollo no puede compilar ni
+probar — el mismo tipo de límite que ya causó el crash de AsyncStorage documentado en
+otra sección de este archivo, y que bloqueó compilar `better-sqlite3` en `hkc-backend`
+por falta de Visual Studio Build Tools. Por eso Sprint 5 se dividió explícitamente en
+fases, acordadas con el usuario, para no repetir ese riesgo sin poder verificarlo:
+
+### Fase 1 — Fotos de referencia por trabajador ✅ (sin dependencias nativas nuevas)
+
+Construida y verificada por tipos en este entorno — usa únicamente `expo-camera`, ya
+dependencia del proyecto y ya probada (es la misma que usa la captura de evidencia de
+asistencia).
+
+- Migración `008_create_fotos_referencia_facial.ts` — tabla nueva, `trabajador_id`
+  con `ON DELETE CASCADE` (aunque hoy nada hace `DELETE` real de un trabajador). A
+  diferencia de `trabajadores`/`proyectos`, aquí `eliminar()` **sí** es un `DELETE`
+  real, no baja lógica: una foto de referencia es material reemplazable, no un
+  registro de auditoría con peso histórico — no aplica el mismo motivo que obliga a
+  la baja lógica de trabajadores/proyectos (preservar asistencias históricas).
+- `domain/entities/FotoReferenciaFacial.ts` y
+  `domain/repositories/IFotoReferenciaFacialRepository.ts` — deliberadamente **sin**
+  campo de embedding todavía: agregarlo ahora sería un dato que nadie llena, se agrega
+  cuando exista un motor real que lo calcule (Fase 3).
+- `application/useCases/CapturarFotoReferenciaUseCase.ts` — aplica el límite de
+  `MAXIMO_FOTOS_POR_TRABAJADOR` (5) como regla de negocio del use case, no de la UI ni
+  del repositorio.
+- `store/fotosReferenciaStore.ts` + `app/trabajadores/fotos.tsx` — pantalla de
+  galería/captura, reutiliza el componente `CameraCapture` ya existente (el mismo que
+  usa la captura de evidencia de asistencia — "componentes reutilizables"). Entra
+  desde un botón de cámara en cada fila de `trabajadores/index.tsx`.
+- `infrastructure/storage/fileService.ts` — se agregó `eliminarArchivo()` para borrar
+  el archivo físico al eliminar una foto (best-effort: si falla, el registro de todos
+  modos ya se quitó de la base; un archivo huérfano es una fuga de almacenamiento
+  menor, no un bug de datos).
+
+### Fase 2/3 — Detección y reconocimiento real (arquitectura lista, sin librería nativa)
+
+- `application/ports/IReconocimientoFacialService.ts` — puerto con dos métodos:
+  `detectarRostro()` (fase 2, valida que una foto tenga un rostro) y
+  `generarEmbedding()` (fase 3, vector de características para comparar). Vive en
+  `application/ports/`, no `domain/`, mismo aprendizaje ya aplicado a `ISyncGateway`:
+  habla en términos de `fotoUri: string`, un detalle de infraestructura, no de una
+  entidad de dominio pura.
+- `infrastructure/facial/NoOpReconocimientoFacialService.ts` — implementación por
+  defecto, falla con un mensaje claro (mismo criterio honesto que
+  `UnconfiguredSyncGateway`). El comentario del archivo documenta las librerías
+  investigadas en julio 2026 para cuando se implemente de verdad:
+  - **Detección**: `expo-face-detector` está deprecado desde Expo SDK 51 (usaba
+    Google Mobile Vision, descontinuado). La ruta recomendada hoy es
+    `react-native-vision-camera` + un frame processor de detección (ML Kit).
+  - **Reconocimiento**: no hay paquete "todo incluido" maduro; el patrón usado en
+    proyectos similares es `react-native-fast-tflite` cargando un modelo `.tflite`
+    tipo FaceNet/MobileFaceNet para generar embeddings, comparados por similitud
+    coseno.
+- `application/services/similitudCoseno.ts` — función pura (sin dependencias) que ya
+  se puede usar y probar hoy, aunque todavía no exista quien genere embeddings reales.
+
+### Por qué las fases 2 y 3 no se instalaron todavía
+
+Ambas rutas (`react-native-vision-camera`, `react-native-fast-tflite`) son módulos
+nativos con frame processors — requieren `react-native-reanimated`/`worklets-core` en
+modo nativo, lo que **rompe Expo Go** y exige un dev client custom (`expo-dev-client` +
+`eas build`, o una build local con Android Studio/Xcode). Este entorno de desarrollo no
+tiene forma de compilar ni ejecutar ese tipo de build — instalar esas librerías aquí
+significaría escribir código que nadie puede verificar hasta que el usuario compile un
+dev client fuera de este entorno, con el mismo riesgo que ya se vio con el crash de
+AsyncStorage. La arquitectura (puertos, entidades, función de similitud) ya está lista
+para recibir la implementación real el día que exista esa build; mientras tanto, la
+Fase 1 (captura y gestión de fotos de referencia) es completamente funcional y útil por
+sí sola — RH/admin ya puede acumular el material de entrenamiento antes de que exista
+el motor de reconocimiento.
+
+---
+
 ## Roadmap
 
 ### Sprint 1 — Infraestructura base ✅
@@ -760,9 +837,16 @@ expiración de sesión.
   reintentos automáticos todavía" más arriba; requiere backend real + un módulo de
   detección de conectividad que hoy no es dependencia del proyecto.
 
-### Sprint 5 — Reconocimiento facial
-- Captura de múltiples fotografías por trabajador, generación de embeddings,
-  reconocimiento facial offline, modo kiosco completamente automático.
+### Sprint 5 — Reconocimiento facial (Fase 1 ✅, fases 2-3 requieren build nativa)
+- ✅ Captura y gestión de múltiples fotografías por trabajador (hasta 5) — ver
+  "Reconocimiento facial" más arriba.
+- ✅ Arquitectura lista para el motor real: puerto `IReconocimientoFacialService`,
+  `NoOpReconocimientoFacialService` (honesto, mismo criterio que
+  `UnconfiguredSyncGateway`), función pura de similitud coseno.
+- ⬜ Generación de embeddings y reconocimiento automático en modo Kiosco — bloqueado
+  por la necesidad de un dev client nativo custom (`react-native-vision-camera` +
+  `react-native-fast-tflite`), que este entorno no puede compilar ni probar. Requiere
+  que el usuario genere una build (`eas build` o local) para continuar esta fase.
 
 ### Sprint 6 — Reportes (en curso)
 - ✅ Dashboard para RH: resumen (total, trabajadores/proyectos únicos, por tipo de

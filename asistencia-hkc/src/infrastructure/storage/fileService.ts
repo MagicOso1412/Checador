@@ -38,6 +38,18 @@ export async function ensureExportsDirectory(): Promise<string> {
   return ensureDirectory("exports");
 }
 
+/**
+ * Borra un archivo local (hoy: una foto de referencia facial eliminada por
+ * el usuario — ver `EliminarFotoReferenciaUseCase`). `idempotent: true`
+ * evita que truene si el archivo ya no existe (por ejemplo, si se llama dos
+ * veces por un doble tap). No-op en web a propósito: ahí la "foto" es una
+ * `data:` URI en memoria, no un archivo en disco — no hay nada que borrar.
+ */
+export async function eliminarArchivo(uri: string): Promise<void> {
+  if (Platform.OS === "web") return;
+  await FileSystem.deleteAsync(uri, { idempotent: true });
+}
+
 async function ensureDirectory(name: string): Promise<string> {
   const dir = `${FileSystem.documentDirectory}${name}`;
 

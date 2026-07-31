@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
-import { ChevronRight, Plus, User } from "lucide-react-native";
+import { Camera, ChevronRight, Plus, User } from "lucide-react-native";
 
 import { ScreenHeader } from "@/components/attendance/screen-header";
 import { StatusPill } from "@/components/attendance/ui-rows";
@@ -107,6 +107,14 @@ export default function TrabajadoresListScreen() {
                 bgClassName={item.activo ? "bg-green-100" : "bg-slate-100"}
                 textClassName={item.activo ? "text-green-700" : "text-slate-500"}
               />
+              <Pressable
+                onPress={() => router.push({ pathname: "/trabajadores/fotos", params: { id: item.id } })}
+                hitSlop={8}
+                className="h-8 w-8 items-center justify-center rounded-full"
+                style={{ backgroundColor: palette.primary10 }}
+              >
+                <Camera size={15} color={palette.primary} />
+              </Pressable>
               <ChevronRight size={18} color={palette.mutedForeground} />
             </Pressable>
           )}
