@@ -200,6 +200,26 @@ pantalla.
 - `<Stack.Screen options={{ gestureEnabled: !registrando }} />` bloquea también el gesto
   de "deslizar para regresar" (iOS y Android) durante el guardado.
 
+### Bug corregido: LogBox de warnings de GPS/cámara bloqueando la UI en Kiosco
+
+Segundo reporte del usuario, mismo síntoma ("se muere la app"), en la misma pantalla
+(`asistencia/confirmar.tsx`, alcanzada tras identificar al trabajador), esta vez al
+tocar "regresar" en un dispositivo Kiosco sin GPS disponible. El mensaje visible era el
+`console.warn` de `locationService.ts`: `"no se pudo obtener ubicación"`.
+
+**Causa real:** ese warning no es un bug — es el comportamiento documentado a propósito
+("nunca lanza, GPS apagado no debe bloquear el registro"). El problema es que
+`console.warn` dispara el overlay de LogBox de React Native en builds de
+desarrollo/Expo Go, y como el GPS nunca está disponible en el dispositivo de prueba,
+ese overlay aparece **cada vez** que se llega a esta pantalla — interceptando toques y,
+en hardware limitado, dejando la UI bloqueada hasta forzar el cierre de la app.
+
+**Corrección:** `app/_layout.tsx` llama `LogBox.ignoreLogs([...])` para los mensajes
+puntuales de `locationService.ts` y `cameraService.ts` que ya sabemos esperados y
+manejados (no se dejó de usar `console.warn` — sigue siendo útil verlo en la terminal
+de Metro; solo se le pidió a LogBox que no dibuje el overlay para estos casos
+específicos).
+
 ### Geolocalización
 
 `infrastructure/location/locationService.ts` — `obtenerUbicacionActual()` con
