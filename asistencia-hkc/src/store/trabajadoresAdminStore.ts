@@ -27,7 +27,8 @@ interface TrabajadoresAdminState {
   /** Carga TODOS los trabajadores (activos e inactivos) — a diferencia de trabajadorStore, que solo trae activos. */
   cargarTrabajadores: () => Promise<void>;
   obtenerPorId: (id: string) => Promise<Trabajador | null>;
-  crearTrabajador: (request: CrearTrabajadorRequest) => Promise<void>;
+  /** Regresa el trabajador creado (con su `id` ya asignado) — lo usa el formulario para ofrecer capturar sus fotos de referencia justo después de darlo de alta. */
+  crearTrabajador: (request: CrearTrabajadorRequest) => Promise<Trabajador>;
   actualizarTrabajador: (request: ActualizarTrabajadorRequest) => Promise<void>;
   eliminarTrabajador: (id: string) => Promise<void>;
 }
@@ -64,9 +65,10 @@ export const useTrabajadoresAdminStore = create<TrabajadoresAdminState>((set, ge
   crearTrabajador: async (request) => {
     set({ guardando: true, error: null });
     try {
-      await crearTrabajadorUseCase.execute(request);
+      const trabajador = await crearTrabajadorUseCase.execute(request);
       set({ guardando: false });
       await get().cargarTrabajadores();
+      return trabajador;
     } catch (error) {
       set({
         guardando: false,

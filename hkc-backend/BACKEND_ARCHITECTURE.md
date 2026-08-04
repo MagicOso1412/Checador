@@ -140,27 +140,41 @@ Dos mecanismos deliberadamente distintos, uno por tipo de cliente:
 | GET | `/health` | Ninguna | Chequeo de salud/uptime. |
 | POST | `/api/auth/login` | Ninguna (es el login) | `{ email, password }` → `{ token, usuario }`. |
 | POST | `/api/asistencias` | API key de dispositivo | Recibe un `AsistenciaSyncPayload`. Idempotente por `id`: si ya existe, responde `200` sin duplicar (un dispositivo puede reintentar un envío que sí llegó pero cuya respuesta no recibió). |
-| GET | `/api/asistencias` | Sesión RH (JWT) | Lectura filtrable: `?proyectoId=&trabajadorId=&desde=&hasta=&limite=` (todos opcionales; `desde`/`hasta` en ISO 8601). Devuelve `{ total, registros }`. |
+| GET | `/api/asistencias` | Sesión RH (JWT) | Lectura filtrable: `?proyectoId=&trabajadorId=&desde=&hasta=&limite=` (todos opcionales; `desde`/`hasta` en ISO 8601). Devuelve `{ total, limitado, registros }` — `limitado: true` cuando la cantidad de filas devueltas llegó exactamente al límite aplicado (aviso de "probablemente hay más, acota el rango de fechas"), ver `db/asistenciasQueries.ts`. |
 | GET | `/api/asistencias/export.csv` | Sesión RH (JWT) | Mismo filtro que el anterior, como descarga CSV — el "ver o descargar" que RH necesita. |
 | GET | `/api/asistencias/export.xlsx` | Sesión RH (JWT) | Mismo filtro y mismas columnas que `export.csv`, como libro de Excel (`lib/excel.ts`, ver nota de dependencias abajo). |
 
 ---
 
-## Dependencias — nota de seguridad (`xlsx`)
+## Dependencias — nota de seguridad (`exceljs`)
 
-`npm audit` marca 1 advisory "high" en `xlsx` (Prototype Pollution y ReDoS,
-GHSA-4r6h-8v6p-xvw6 / GHSA-5pgg-2g8v-p4x9), sin parche publicado en el registro de
-npm — SheetJS dejó de publicar ahí y mueve sus versiones parchadas a su propio CDN.
-Se evaluó y **no aplica al uso que le da este backend**: ambas vulnerabilidades
-viven en el parser (`XLSX.read`/`XLSX.readFile`), y este proyecto nunca lee un
-archivo Excel — solo escribe uno (`XLSX.write`) a partir de datos que ya vienen de
-nuestra propia base de datos (`lib/excel.ts`). Se prefirió sobre `exceljs` (la
-alternativa más popular) porque `exceljs` arrastra `archiver` → `glob 7` →
-`minimatch`/`brace-expansion` desactualizados, con 9 advisories "high" en su árbol
-de dependencias (200 paquetes instalados) contra 1 sola advisory de `xlsx` (0
-dependencias, 1 paquete). Mismo criterio ya aplicado a `react-router-dom` en
-`hkc-rh-portal/PORTAL_ARCHITECTURE.md`: evaluar si el advisory aplica al patrón de
-uso real, no solo a si `npm audit` reporta algo.
+La primera versión de `lib/excel.ts` usaba `xlsx` (SheetJS) en vez de `exceljs`
+porque una primera evaluación de auditoría marcaba 9 advisories "high" en el árbol
+de `exceljs` (vía `archiver` → `glob 7` → `minimatch`/`brace-expansion`
+desactualizados) contra solo 1 advisory en `xlsx`. Pero `xlsx` (edición community,
+la que se instala vía npm) **no soporta escribir estilos de celda** — se probó
+explícitamente (asignar `ws['A1'].s = {...}` y luego inspeccionar el `styles.xml`
+del `.xlsx` resultante como zip) y el estilo se descarta en silencio al guardar.
+Esto bloqueaba el pedido explícito del usuario de que el Excel se viera "más
+bonito" (encabezado en negritas con color), así que se reevaluó `exceljs`.
+
+Al reinstalarlo con un `package-lock.json` completamente nuevo (sin arrastrar
+versiones viejas de transitivas fijadas por un lockfile anterior), `npm audit`
+bajó a **1 sola advisory "moderate"**, en `uuid` (usado internamente por
+`exceljs` para nombres de archivos temporales — no en una ruta que procese datos
+de terceros). Este backend nunca lee un `.xlsx` subido por nadie, solo escribe
+uno a partir de su propia base de datos, así que la superficie de riesgo real es
+mínima. La discrepancia entre las dos evaluaciones (9 "high" vs. 1 "moderate")
+vino de reusar un lockfile viejo en la primera prueba — lección general a tener
+en cuenta para futuras evaluaciones de dependencias en este proyecto: reinstalar
+en limpio antes de descartar un paquete por su reporte de auditoría.
+
+Verificado manualmente (mismo método de "escribir, descomprimir, inspeccionar el
+XML"): el `.xlsx` generado con `exceljs` sí serializa el estilo real
+(`<font><b/>...</font>` y el color de relleno) en `styles.xml`, a diferencia de
+`xlsx`. Mismo criterio de "evaluar si el advisory aplica al patrón de uso real, no
+solo si `npm audit` reporta algo" ya aplicado a `react-router-dom` en
+`hkc-rh-portal/PORTAL_ARCHITECTURE.md`.
 
 ---
 

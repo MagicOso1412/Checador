@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Camera, Plus, Trash2 } from "lucide-react-native";
+import { Camera, Plus, ShieldOff, Trash2 } from "lucide-react-native";
 
 import CameraCapture from "@/components/CameraCapture";
+import { ConsentimientoBiometricoScreen } from "@/components/trabajadores/ConsentimientoBiometricoScreen";
 import { ScreenHeader } from "@/components/attendance/screen-header";
 import { palette } from "@/constants/palette";
 import { shadowSm } from "@/constants/shadows";
 import type { FotoReferenciaFacial } from "@/domain/entities/FotoReferenciaFacial";
 import { esArchivoDeFotoValido, type SavedPhoto } from "@/infrastructure/camera/cameraService";
+import { useConsentimientoBiometricoStore } from "@/store/consentimientoBiometricoStore";
 import { MAXIMO_FOTOS_POR_TRABAJADOR, useFotosReferenciaStore } from "@/store/fotosReferenciaStore";
 import { useTrabajadoresAdminStore } from "@/store/trabajadoresAdminStore";
 
@@ -55,17 +57,69 @@ export default function FotosReferenciaScreen() {
   const { id: trabajadorId } = useLocalSearchParams<{ id: string }>();
   const { fotos, cargando, guardando, error, cargarFotos, capturarFoto, eliminarFoto } =
     useFotosReferenciaStore();
+  const {
+    consentimiento,
+    guardando: guardandoConsentimiento,
+    cargarConsentimiento,
+    otorgarConsentimiento,
+    revocarConsentimiento,
+  } = useConsentimientoBiometricoStore();
   const { obtenerPorId } = useTrabajadoresAdminStore();
 
   const [nombreTrabajador, setNombreTrabajador] = useState("");
   const [mostrandoCamara, setMostrandoCamara] = useState(false);
+  const [mostrandoConsentimiento, setMostrandoConsentimiento] = useState(false);
 
   useEffect(() => {
     if (!trabajadorId) return;
     cargarFotos(trabajadorId);
+    cargarConsentimiento(trabajadorId);
     obtenerPorId(trabajadorId).then((t) => setNombreTrabajador(t?.nombreCompleto ?? ""));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trabajadorId]);
+
+  // Gate obligatorio: sin consentimiento vigente para la versión actual del
+  // texto (ver `ConsentimientoBiometrico.cubreVersionActual`), no se abre la
+  // cámara — se muestra el paso de consentimiento primero.
+  const handleAbrirCaptura = () => {
+    if (!consentimiento?.cubreVersionActual) {
+      setMostrandoConsentimiento(true);
+    } else {
+      setMostrandoCamara(true);
+    }
+  };
+
+  const handleConsentimientoAceptado = async () => {
+    try {
+      await otorgarConsentimiento(trabajadorId);
+      setMostrandoConsentimiento(false);
+      setMostrandoCamara(true);
+    } catch (err) {
+      Alert.alert("No se pudo guardar", err instanceof Error ? err.message : "Error desconocido");
+    }
+  };
+
+  const handleRevocarConsentimiento = () => {
+    Alert.alert(
+      "Revocar consentimiento",
+      "Se eliminarán también todas las fotos de referencia guardadas de este trabajador. ¿Continuar?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Revocar y borrar fotos",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await revocarConsentimiento(trabajadorId);
+              await cargarFotos(trabajadorId);
+            } catch (err) {
+              Alert.alert("No se pudo revocar", err instanceof Error ? err.message : "Error desconocido");
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const handleCaptured = async (photo: SavedPhoto) => {
     const valida = await esArchivoDeFotoValido(photo.uri);
@@ -94,6 +148,17 @@ export default function FotosReferenciaScreen() {
     ]);
   };
 
+  if (mostrandoConsentimiento) {
+    return (
+      <ConsentimientoBiometricoScreen
+        nombreTrabajador={nombreTrabajador}
+        guardando={guardandoConsentimiento}
+        onAceptar={handleConsentimientoAceptado}
+        onCancelar={() => setMostrandoConsentimiento(false)}
+      />
+    );
+  }
+
   if (mostrandoCamara) {
     return (
       <View className="flex-1 bg-[#06080f]">
@@ -115,7 +180,7 @@ export default function FotosReferenciaScreen() {
         onBack={() => router.back()}
         right={
           <Pressable
-            onPress={() => setMostrandoCamara(true)}
+            onPress={handleAbrirCaptura}
             disabled={alcanzoLimite || guardando}
             className="h-9 w-9 items-center justify-center rounded-full"
             style={{ backgroundColor: palette.white10, opacity: alcanzoLimite || guardando ? 0.4 : 1 }}
@@ -129,6 +194,18 @@ export default function FotosReferenciaScreen() {
         {fotos.length} de {MAXIMO_FOTOS_POR_TRABAJADOR} fotos · varias muestras ayudan a que el
         reconocimiento futuro sea más confiable (distintos ángulos, luz, con/sin lentes).
       </Text>
+
+      {consentimiento?.cubreVersionActual ? (
+        <Pressable
+          onPress={handleRevocarConsentimiento}
+          className="mx-4 mt-2 flex-row items-center gap-1.5"
+        >
+          <ShieldOff size={13} color={palette.mutedForeground} />
+          <Text className="text-xs text-muted-foreground" style={{ textDecorationLine: "underline" }}>
+            Revocar consentimiento biométrico
+          </Text>
+        </Pressable>
+      ) : null}
 
       {cargando ? (
         <View className="flex-1 items-center justify-center">

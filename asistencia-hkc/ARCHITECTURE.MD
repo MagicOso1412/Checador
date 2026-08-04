@@ -884,6 +884,50 @@ asistencia).
     el caso raro de un glitch de cámara que deja un archivo corrupto/truncado. Se llama
     antes de guardar el registro en `fotos.tsx`; si falla, se ofrece reintentar en vez
     de guardar una foto de referencia inútil.
+- **Consentimiento biométrico** (tercera iteración, requisito legal antes de poblar la
+  base con datos reales): el rostro es un dato personal sensible bajo la LFPDPPP
+  mexicana, así que capturar fotos de referencia ya no es posible sin que el
+  trabajador acepte explícitamente un aviso primero.
+  - Migración `009_create_consentimientos_biometricos.ts` — una fila por trabajador
+    (`trabajador_id` como PK, relación 1 a 1), con `version_texto` y `revocado_en`
+    (nullable).
+  - `domain/entities/ConsentimientoBiometrico.ts` — exporta
+    `VERSION_TEXTO_CONSENTIMIENTO_BIOMETRICO`; el getter `cubreVersionActual` combina
+    "no fue revocado" + "corresponde a la versión vigente del texto" en un solo lugar,
+    para que ningún caller olvide una de las dos condiciones. Si el texto legal cambia
+    de fondo, se sube esa constante y todos los consentimientos viejos dejan de contar
+    como vigentes automáticamente — se vuelve a pedir, sin tocar la tabla.
+  - `constants/consentimientoBiometrico.ts` — el texto real mostrado en pantalla
+    (qué se captura, para qué, dónde vive, que es voluntario y revocable, derechos
+    ARCO). **`RESPONSABLE_DATOS` es un placeholder** ("HKC Construcción") — hay que
+    confirmar la razón social real y un contacto real de RH antes de usar esto en
+    producción; un aviso sin responsable identificable no cumple el Art. 15-16 LFPDPPP.
+  - `application/useCases/{Otorgar,Obtener,Revocar}ConsentimientoBiometricoUseCase.ts`
+    — `Revocar` implementa el derecho de cancelación: no solo bloquea capturas nuevas,
+    también borra las fotos de referencia que ya existían (retorna la lista borrada
+    para que el store limpie los archivos físicos, mismo criterio de "el use case no
+    toca el filesystem" ya usado en `EliminarFotoReferenciaUseCase`).
+  - `store/consentimientoBiometricoStore.ts` — store dedicado (una responsabilidad
+    por store, mismo criterio que el resto del proyecto), combinado con
+    `fotosReferenciaStore` y `trabajadoresAdminStore` en una sola pantalla.
+  - `components/trabajadores/ConsentimientoBiometricoScreen.tsx` — pantalla de
+    consentimiento. Deliberadamente **no es una ruta de Expo Router aparte**: vive
+    como un estado más dentro de `trabajadores/fotos.tsx` (mismo patrón que
+    `mostrandoCamara`), para no agregar otra entrada al historial de navegación —
+    mismo espíritu que la nota de `push`/`replace` del wizard de asistencia más abajo:
+    entre menos pantallas-ruta intermedias, menos riesgo de un back button raro.
+  - `trabajadores/fotos.tsx`: el botón "+" ahora pasa primero por
+    `handleAbrirCaptura()`, que revisa `consentimiento?.cubreVersionActual` antes de
+    abrir la cámara. Hay también un link discreto "Revocar consentimiento biométrico"
+    visible cuando el consentimiento está vigente, con confirmación (`Alert`) porque
+    borra las fotos existentes.
+  - `trabajadores/form.tsx`: al dar de alta un trabajador **nuevo** (no al editar),
+    `handleGuardar` ya no solo hace `router.back()` — navega directo a
+    `/trabajadores/fotos?id=<nuevoId>` (con `router.replace`, seguido de `back()`
+    en `fotos.tsx` para volver al hub — mismo criterio de navegación del wizard de
+    asistencia). Así RH puede dar de alta y capturar fotos de referencia en un solo
+    flujo continuo mientras puebla la base, sin tener que volver a buscar al
+    trabajador recién creado en la lista.
 
 ### Fase 2/3 — Detección y reconocimiento real (arquitectura lista, sin librería nativa)
 
@@ -983,6 +1027,10 @@ el motor de reconocimiento.
 ### Sprint 5 — Reconocimiento facial (Fase 1 ✅, fases 2-3 requieren build nativa)
 - ✅ Captura y gestión de múltiples fotografías por trabajador (hasta 5) — ver
   "Reconocimiento facial" más arriba.
+- ✅ Consentimiento biométrico obligatorio antes de capturar fotos (LFPDPPP) +
+  derecho de revocación (borra las fotos existentes) — ver "Consentimiento
+  biométrico" más arriba. Base ya lista para empezar a poblar datos reales de
+  trabajadores.
 - ✅ Arquitectura lista para el motor real: puerto `IReconocimientoFacialService`,
   `NoOpReconocimientoFacialService` (honesto, mismo criterio que
   `UnconfiguredSyncGateway`), función pura de similitud coseno.
@@ -991,15 +1039,27 @@ el motor de reconocimiento.
   `react-native-fast-tflite`), que este entorno no puede compilar ni probar. Requiere
   que el usuario genere una build (`eas build` o local) para continuar esta fase.
 
-### Sprint 6 — Reportes (en curso)
+### Sprint 6 — Reportes ✅
 - ✅ Dashboard para RH: resumen (total, trabajadores/proyectos únicos, por tipo de
   movimiento) sobre el rango de fechas filtrado — `hkc-rh-portal/src/lib/estadisticas.ts`.
 - ✅ Exportación a Excel — `GET /api/asistencias/export.xlsx` en `hkc-backend` +
   botón "Descargar Excel" en el portal, mismo filtro y columnas que el CSV
   existente. Ver `hkc-backend/BACKEND_ARCHITECTURE.md` y
   `hkc-rh-portal/PORTAL_ARCHITECTURE.md`.
+- ✅ Formato real del Excel — el usuario pidió que se viera "más bonito"; se
+  cambió de `xlsx` (SheetJS) a `exceljs` porque `xlsx` no soporta escribir
+  estilos de celda (verificado empíricamente). El `.xlsx` generado ahora tiene
+  encabezado en negritas con relleno azul y columnas auto-ajustadas. Ver la nota
+  de dependencias en `hkc-backend/BACKEND_ARCHITECTURE.md`.
+- ✅ Aviso de resultados truncados — `GET /api/asistencias` devuelve
+  `limitado: true` cuando el resultado llega al límite máximo de filas de la
+  consulta (500 por defecto, 5000 máximo), y el portal muestra un banner
+  pidiendo acotar el rango de fechas. Antes un usuario podía asumir en silencio
+  que la lista/resumen/exportación cubrían todo el rango pedido cuando en
+  realidad estaban recortados.
 - ⬜ Exportación a PDF — deliberadamente fuera de alcance por ahora: no hay un caso
   de uso concreto todavía (CSV/Excel ya cubren "ver o descargar"); se retoma si
   surge un requisito de documento con formato fijo (ej. constancia individual).
-- ⬜ Verificación end-to-end contra un backend real corriendo (sigue bloqueada por
-  el mismo motivo que Sprint 4: el sandbox no puede compilar `better-sqlite3`).
+- ✅ Verificación end-to-end contra un backend real corriendo — probado por el usuario
+  en un teléfono real: login del portal, captura, sincronización y descarga de
+  CSV/Excel funcionando de punta a punta contra `hkc-backend` corriendo en local.

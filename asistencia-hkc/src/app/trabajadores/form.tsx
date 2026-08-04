@@ -46,10 +46,19 @@ export default function TrabajadorFormScreen() {
     try {
       if (esEdicion && id) {
         await actualizarTrabajador({ id, numeroEmpleado, nombre, apellidoPaterno, apellidoMaterno, activo });
+        router.back();
       } else {
-        await crearTrabajador({ numeroEmpleado, nombre, apellidoPaterno, apellidoMaterno });
+        const trabajador = await crearTrabajador({ numeroEmpleado, nombre, apellidoPaterno, apellidoMaterno });
+        // Alta nueva (no edición): en vez de solo volver a la lista, se ofrece
+        // capturar de una vez sus fotos de referencia — es justo el momento
+        // en que RH está poblando la base para el futuro reconocimiento
+        // facial, y volver a buscar al trabajador recién creado en la lista
+        // para entrar a "Fotos de referencia" es fricción innecesaria (mismo
+        // espíritu que el registro sin botones de vuelta del wizard de
+        // asistencia, ver ARCHITECTURE.MD). `replace`, no `push`: este
+        // formulario ya no debe quedar en el historial una vez guardado.
+        router.replace({ pathname: "/trabajadores/fotos", params: { id: trabajador.id } });
       }
-      router.back();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar el trabajador");
     }

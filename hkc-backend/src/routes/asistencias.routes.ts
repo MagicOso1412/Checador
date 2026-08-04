@@ -92,8 +92,8 @@ asistenciasRouter.post("/api/asistencias", apiKeyAuth, (req, res) => {
  */
 asistenciasRouter.get("/api/asistencias", jwtAuth, (req, res) => {
   const filtros = leerFiltros(req.query as Record<string, unknown>);
-  const registros = buscarAsistencias(filtros);
-  res.json({ total: registros.length, registros });
+  const { registros, limitado } = buscarAsistencias(filtros);
+  res.json({ total: registros.length, limitado, registros });
 });
 
 const ENCABEZADOS_REPORTE = [
@@ -133,7 +133,7 @@ function filasParaReporte(registros: AsistenciaRow[]): string[][] {
  */
 asistenciasRouter.get("/api/asistencias/export.csv", jwtAuth, (req, res) => {
   const filtros = leerFiltros(req.query as Record<string, unknown>);
-  const registros = buscarAsistencias(filtros);
+  const { registros } = buscarAsistencias(filtros);
   const csv = generarCsv(ENCABEZADOS_REPORTE, filasParaReporte(registros));
 
   const fecha = new Date().toISOString().slice(0, 10);
@@ -144,17 +144,21 @@ asistenciasRouter.get("/api/asistencias/export.csv", jwtAuth, (req, res) => {
 
 /**
  * Mismo filtro y mismas columnas que `export.csv`, como libro de Excel
- * (`.xlsx`) — lo que pidió el usuario para Sprint 6 ("exportación
- * Excel/PDF"). Ver `lib/excel.ts` para la nota de por qué se eligió `xlsx`
- * sobre `exceljs`.
+ * (`.xlsx`) con encabezado real en negritas — lo que pidió el usuario para
+ * Sprint 6 ("exportación Excel/PDF", y después "que se vea más bonito"). Ver
+ * `lib/excel.ts` para la nota de por qué se eligió `exceljs`.
  */
-asistenciasRouter.get("/api/asistencias/export.xlsx", jwtAuth, (req, res) => {
-  const filtros = leerFiltros(req.query as Record<string, unknown>);
-  const registros = buscarAsistencias(filtros);
-  const buffer = generarExcel(ENCABEZADOS_REPORTE, filasParaReporte(registros));
+asistenciasRouter.get("/api/asistencias/export.xlsx", jwtAuth, async (req, res, next) => {
+  try {
+    const filtros = leerFiltros(req.query as Record<string, unknown>);
+    const { registros } = buscarAsistencias(filtros);
+    const buffer = await generarExcel(ENCABEZADOS_REPORTE, filasParaReporte(registros));
 
-  const fecha = new Date().toISOString().slice(0, 10);
-  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", `attachment; filename="asistencias_${fecha}.xlsx"`);
-  res.send(buffer);
+    const fecha = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="asistencias_${fecha}.xlsx"`);
+    res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
 });

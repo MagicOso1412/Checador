@@ -22,6 +22,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
 
   const [registros, setRegistros] = useState<AsistenciaRow[]>([]);
+  const [limitado, setLimitado] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [descargando, setDescargando] = useState<"csv" | "xlsx" | null>(null);
@@ -44,11 +45,12 @@ export function DashboardPage() {
     setCargando(true);
     setError(null);
     try {
-      const { registros } = await obtenerAsistencias(token, {
+      const { registros, limitado } = await obtenerAsistencias(token, {
         desde: desde || undefined,
         hasta: hasta || undefined,
       });
       setRegistros(registros);
+      setLimitado(limitado);
     } catch (err) {
       manejarErrorApi(err);
     } finally {
@@ -150,6 +152,12 @@ export function DashboardPage() {
       </section>
 
       {error ? <p className="error-text">{error}</p> : null}
+      {limitado ? (
+        <p className="warning-banner">
+          Se alcanzó el límite de resultados de esta búsqueda — puede haber más registros sin mostrar. Usa un rango
+          de fechas más chico (Desde/Hasta) para ver todo.
+        </p>
+      ) : null}
 
       <section className="resumen">
         <ResumenChip etiqueta="Total" valor={resumen.total} />

@@ -52,6 +52,8 @@ declare module "lucide-react-native" {
   export const Server: LucideIcon;
   export const Settings: LucideIcon;
   export const Shield: LucideIcon;
+  export const ShieldCheck: LucideIcon;
+  export const ShieldOff: LucideIcon;
   export const Smartphone: LucideIcon;
   export const Trash2: LucideIcon;
   export const UploadCloud: LucideIcon;

@@ -34,6 +34,13 @@ export interface AsistenciaRow {
 
 export interface AsistenciasResponse {
   total: number;
+  /**
+   * `true` cuando el backend recortó los resultados por el límite máximo de
+   * la consulta — señal de "probablemente hay más filas sin mostrar, acota
+   * el rango de fechas", no un conteo exacto. Ver `ResultadoBusquedaAsistencias`
+   * en `hkc-backend/src/db/asistenciasQueries.ts`.
+   */
+  limitado: boolean;
   registros: AsistenciaRow[];
 }
 

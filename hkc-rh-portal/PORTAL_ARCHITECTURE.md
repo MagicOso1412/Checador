@@ -99,7 +99,18 @@ endpoint de búsqueda por texto en el backend.
   temporal que ya usaba el CSV) y un segundo botón en `DashboardPage.tsx`. No se
   generó el `.xlsx` en el navegador a propósito: el backend ya es la fuente de
   verdad para reportes (mismo query, mismo límite de filas) y así CSV/Excel nunca
-  pueden divergir entre sí por un bug de un solo lado.
+  pueden divergir entre sí por un bug de un solo lado. El archivo generado tiene
+  encabezado real en negritas con relleno de color (ver la nota de `exceljs` en
+  `hkc-backend/BACKEND_ARCHITECTURE.md`) — verificado el usuario descargando ambos
+  formatos desde un backend real.
+- **Aviso de resultados truncados**: `GET /api/asistencias` recorta a
+  `LIMITE_POR_DEFECTO` (500) o `LIMITE_MAXIMO` (5000) filas por consulta (ver
+  `hkc-backend/src/db/asistenciasQueries.ts`). Cuando el resultado llega
+  exactamente a ese límite, el backend devuelve `limitado: true` y
+  `DashboardPage.tsx` pinta un banner ("puede haber más registros sin mostrar,
+  acota el rango de fechas") — sin esto, un usuario podía asumir en silencio que
+  la lista/resumen/exportación cubrían todo el rango pedido cuando en realidad
+  estaban recortados.
 - **PDF** (mencionado en el roadmap original de Sprint 6) se dejó fuera de esta
   iteración: no hay todavía un caso de uso concreto para PDF que CSV/Excel no
   cubran (RH pidió "descargar o visualizar", no un documento con membrete) — se
@@ -148,16 +159,14 @@ backend real.
 
 ## Estado
 
-Funcional: login, lista filtrable, resumen, descarga CSV y Excel. **No verificado
-end-to-end en un entorno con backend corriendo** — el sandbox de desarrollo no pudo
-compilar el binario nativo de `better-sqlite3` (bloqueo de red, ver
-`hkc-backend/README.md`), así que la validación de este proyecto fue por tipos
-(`tsc --noEmit`, limpio en ambos proyectos) — `vite build` transforma los módulos
-sin errores, pero no llega a terminar en este entorno por otra limitación del
-mismo sandbox (no puede vaciar un `dist/` existente, `EPERM: operation not
-permitted, unlink`; no es un error del código). Vale la pena una prueba manual
-completa (login real, datos reales, descarga de ambos formatos) en cuanto el
-backend esté desplegado o corriendo en una máquina con permisos normales.
+Funcional: login, lista filtrable, resumen, descarga CSV y Excel (con formato
+real). **Verificado end-to-end contra un backend real** — el usuario probó login,
+captura desde el móvil, sincronización y descarga de CSV/Excel de punta a punta
+contra `hkc-backend` corriendo en local. La validación por tipos (`tsc --noEmit`,
+limpio en ambos proyectos) se mantiene como chequeo previo a cada cambio; `vite
+build` transforma los módulos sin errores, aunque en el sandbox de desarrollo no
+llega a terminar por una limitación del entorno (no puede vaciar un `dist/`
+existente, `EPERM: operation not permitted, unlink` — no es un error del código).
 
 Pendiente: nada más falta para lo pedido (login, ver, descargar). Mejoras futuras
 razonables: paginación si el volumen de registros crece mucho, gráficas/resumen
