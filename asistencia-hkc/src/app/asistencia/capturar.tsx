@@ -27,7 +27,9 @@ export default function CapturarFotoScreen() {
 
   const handleCaptured = (photo: SavedPhoto) => {
     setFoto(photo.uri);
-    router.push(trabajadorSeleccionado ? "/asistencia/confirmar" : "/asistencia");
+    // `replace`, no `push` — mismo criterio que el resto del wizard, ver la
+    // nota de navegación en ARCHITECTURE.md.
+    router.replace(trabajadorSeleccionado ? "/asistencia/confirmar" : "/asistencia");
   };
 
   return (

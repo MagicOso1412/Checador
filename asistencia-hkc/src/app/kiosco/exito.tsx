@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Image, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { CheckCircle } from "lucide-react-native";
 
@@ -8,7 +8,17 @@ import { palette } from "@/constants/palette";
 import { useAttendance } from "@/context/attendance-context";
 import { useRegistroAsistenciaStore } from "@/store/registroAsistenciaStore";
 
-/** Éxito del registro en Modo Kiosco — mismo pipeline que Campo, estilo oscuro propio de Kiosco. */
+/**
+ * Éxito del registro en Modo Kiosco — mismo pipeline que Campo, estilo oscuro
+ * propio de Kiosco.
+ *
+ * Al terminar el conteo, regresa directo a la cámara (`/asistencia/capturar`),
+ * no a la pantalla de espera `/kiosco` — el registro es masivo (muchas
+ * personas seguidas), así que no debería hacer falta tocar "Iniciar
+ * reconocimiento" otra vez por cada persona. `router.replace` (no `push`)
+ * mantiene el histórico de navegación acotado en cada vuelta del loop — ver
+ * la nota de navegación del flujo de asistencia en ARCHITECTURE.md.
+ */
 export default function KioskSuccessScreen() {
   const { movementType } = useAttendance();
   const { trabajadorSeleccionado, fotoUri, ubicacion, limpiar } = useRegistroAsistenciaStore();
@@ -16,7 +26,20 @@ export default function KioskSuccessScreen() {
 
   const volverAEspera = () => {
     limpiar();
-    router.replace("/kiosco");
+    router.replace("/asistencia/capturar");
+  };
+
+  /**
+   * Escape hatch manual: por si el operador necesita salir del loop (fin de
+   * turno, etc.). `router.back()`, no `replace("/kiosco")` — gracias a que
+   * cada paso del wizard reemplaza al anterior, el histórico en este punto
+   * es siempre exactamente [kiosco, pantalla-actual]; hacer `back()` regresa
+   * a ese `/kiosco` original sin crear una segunda entrada duplicada (que es
+   * justo el bug que causaba el congelamiento reportado).
+   */
+  const salirAEspera = () => {
+    limpiar();
+    router.back();
   };
 
   useEffect(() => {
@@ -85,10 +108,16 @@ export default function KioskSuccessScreen() {
 
       <View className="mt-6 items-center">
         <Text className="text-sm" style={{ color: palette.white50 }}>
-          Regresando en
+          Siguiente registro en
         </Text>
         <Text className="text-5xl font-bold text-green-400">{countdown}</Text>
       </View>
+
+      <Pressable onPress={salirAEspera} className="mt-6" hitSlop={8}>
+        <Text className="text-xs underline" style={{ color: palette.white50 }}>
+          Salir a pantalla de espera
+        </Text>
+      </Pressable>
     </View>
   );
 }

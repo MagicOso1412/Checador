@@ -81,20 +81,27 @@ export default function AttendanceConfirmScreen() {
   // Esta pantalla es compartida entre Modo Campo y Modo Kiosco (ver
   // ARCHITECTURE.md): el resto del pipeline (identificar trabajador, cámara,
   // GPS, registrar) es idéntico en ambos, solo cambia a dónde se regresa.
-  const homeRoute = operationMode === "kiosco" ? "/kiosco" : "/proyecto";
   const exitoRoute = operationMode === "kiosco" ? "/kiosco/exito" : "/asistencia/exito";
 
+  // `router.back()`, no `replace(homeRoute)` — cada paso del wizard
+  // reemplaza al anterior (ver la nota de navegación en ARCHITECTURE.md),
+  // así que el histórico aquí es siempre [hub, confirmar]. `back()` regresa
+  // a ese hub sin crear una segunda entrada duplicada de la misma ruta.
   const handleCancelar = () => {
     if (registrando) return;
     limpiar();
-    router.replace(homeRoute);
+    router.back();
   };
 
   const handleConfirmar = async () => {
     if (!proyectoSeleccionado) return;
     try {
       await registrar(proyectoSeleccionado.id, mapMovementLabelToTipoRegistro(movementType));
-      router.push(exitoRoute);
+      // `replace`, no `push` — ver la nota de navegación del flujo de
+      // asistencia en ARCHITECTURE.md: cada paso del wizard reemplaza al
+      // anterior para que el histórico no crezca en cada vuelta del loop
+      // (registro masivo = muchas vueltas seguidas).
+      router.replace(exitoRoute);
     } catch {
       // El error ya queda expuesto en el store (`error`) y se muestra abajo.
     }

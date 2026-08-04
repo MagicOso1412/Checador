@@ -45,7 +45,12 @@ export default function SeleccionarTrabajadorScreen() {
 
   const handleSelect = (trabajador: Trabajador) => {
     seleccionarTrabajador(trabajador);
-    router.push(identificandoTrasFoto ? "/asistencia/confirmar" : "/asistencia/capturar");
+    // `replace`, no `push` — este paso del wizard reemplaza al anterior
+    // (ver la nota de navegación en ARCHITECTURE.md). La única excepción es
+    // la entrada al wizard desde el hub (Campo: `proyecto/index.tsx` sí hace
+    // `push` aquí), que se deja intacta para que "regresar" desde el primer
+    // paso vuelva al hub.
+    router.replace(identificandoTrasFoto ? "/asistencia/confirmar" : "/asistencia/capturar");
   };
 
   return (

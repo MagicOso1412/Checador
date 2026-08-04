@@ -220,6 +220,84 @@ manejados (no se dejó de usar `console.warn` — sigue siendo útil verlo en la
 de Metro; solo se le pidió a LogBox que no dibuje el overlay para estos casos
 específicos).
 
+**Nota honesta:** esta corrección resultó necesaria pero no suficiente — el usuario
+siguió reportando congelamientos después de aplicarla, en pruebas con un teléfono real
+(sin el limitante de "GPS siempre apagado" del entorno anterior). La causa real,
+encontrada después, era otra: ver la siguiente sección.
+
+### Navegación del flujo de asistencia: por qué cada paso usa `replace`, no `push`
+
+**El bug real** (dos reportes del usuario, probados ya en un teléfono real): (1) en
+Kiosco, después de registrar una asistencia y tocar "regresar", la app se congelaba;
+(2) en Campo, después de registrar una asistencia y volver a tocar "Registrar
+Asistencia" para la siguiente persona, la pantalla de identificar trabajador no
+respondía a ningún toque (ni elegir a alguien, ni "regresar").
+
+**Causa real:** cada paso del wizard de asistencia (`asistencia/capturar.tsx` →
+`asistencia/index.tsx` → `asistencia/confirmar.tsx` → pantalla de éxito) usaba
+`router.push()` para avanzar. Eso apila una entrada nueva en el histórico de
+navegación por cada paso — y como el registro de asistencia es *masivo* (muchas
+personas seguidas, cada una recorriendo el wizard completo otra vez), el histórico
+crecía sin límite en cada vuelta del loop. Dos consecuencias, una por cada reporte:
+
+1. **Kiosco — pantallas viejas reviviendo con estado ya borrado.** Al terminar un
+   registro, la pantalla de éxito hacía `limpiar()` (borra `trabajadorSeleccionado`/
+   `fotoUri` del store) y `router.replace()` — pero solo reemplazaba la propia pantalla
+   de éxito, dejando todos los pasos anteriores (capturar, identificar, confirmar) del
+   intento ya terminado todavía enterrados en el histórico. Si el usuario tocaba
+   "regresar" después, `router.back()` resucitaba una de esas pantallas viejas con
+   estado ya vacío — por ejemplo, `confirmar.tsx` volvía a pedir GPS desde cero sobre
+   una pantalla que el usuario ya había abandonado, dejando la navegación en un estado
+   que no correspondía a ninguna acción reciente del usuario.
+2. **Campo — rutas duplicadas en el histórico.** Cada vuelta completa del loop volvía
+   a apilar un `/asistencia` nuevo encima de uno viejo que seguía ahí abajo sin
+   resolver. Con la misma ruta apareciendo más de una vez en el histórico, el
+   navegador (React Navigation, debajo de expo-router) se confunde sobre cuál instancia
+   tiene el foco real — la pantalla se ve normal, pero los toques no llegan a donde
+   deberían.
+
+**Corrección — una regla de navegación para todo el wizard:** cada paso *dentro* del
+wizard usa `router.replace()`, nunca `push()`. La única excepción es la entrada al
+wizard desde el hub (`kiosco/index.tsx` → `/asistencia/capturar`, o
+`proyecto/index.tsx` → `/asistencia`), que sigue siendo `push()` a propósito — así
+"regresar" desde el primer paso vuelve al hub. Con esa única entrada por `push` y todo
+lo demás por `replace`, el histórico queda garantizado en, como máximo, dos niveles —
+`[hub, paso-actual]` — sin importar cuántas vueltas del loop se hayan dado:
+
+```
+[kiosco] --push--> [kiosco, capturar] --replace--> [kiosco, identificar]
+         --replace--> [kiosco, confirmar] --replace--> [kiosco, éxito]
+         --replace--> [kiosco, capturar]  ← siguiente persona, misma profundidad
+```
+
+Por la misma razón, `handleCancelar` (en `confirmar.tsx`) y los nuevos enlaces de
+"terminar"/"salir a espera" (ver siguiente sección) usan `router.back()` en vez de
+`router.replace(hub)` — con el histórico ya acotado a `[hub, paso-actual]`, `back()`
+regresa exactamente al hub original sin crear una segunda entrada duplicada de esa
+misma ruta (que sería reintroducir el mismo bug).
+
+**Si se agrega un paso nuevo a este wizard en el futuro:** debe usar `replace()` para
+avanzar, igual que los demás — usar `push()` ahí reintroduce este bug.
+
+### Registro más rápido para uso masivo (pedido explícito del usuario)
+
+El usuario pidió explícitamente que registrar asistencias seguidas (entrada, comida,
+salida, de muchas personas) no requiera tocar un botón para "volver a la cámara" cada
+vez — es el caso de uso central de la app. Aprovechando la corrección de navegación de
+arriba (que ya deja el loop en un estado predecible), se ajustaron las pantallas de
+éxito:
+
+- `kiosco/exito.tsx` — al terminar el conteo (3s), regresa **directo a la cámara**
+  (`/asistencia/capturar`), no a la pantalla de espera `/kiosco`. Ya no hace falta
+  tocar "Iniciar reconocimiento" por cada persona. Se agregó un enlace secundario
+  discreto ("Salir a pantalla de espera") para que el operador pueda terminar el loop
+  cuando quiera (fin de turno, etc.) — sin eso, no había forma de volver a `/kiosco`
+  sin forzar la navegación.
+- `asistencia/exito.tsx` (Campo) — el botón principal pasó de "Nuevo registro" (volvía
+  al hub `/proyecto`) a "Registrar siguiente" (va directo a identificar al próximo
+  trabajador, `/asistencia`). Se agregó un enlace secundario ("Terminar y volver al
+  inicio") para cuando el supervisor ya terminó su ronda de registros.
+
 ### Geolocalización
 
 `infrastructure/location/locationService.ts` — `obtenerUbicacionActual()` con

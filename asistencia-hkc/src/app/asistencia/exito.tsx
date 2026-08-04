@@ -9,15 +9,35 @@ import { useAttendance } from "@/context/attendance-context";
 import { useProyectoStore } from "@/store/proyectoStore";
 import { useRegistroAsistenciaStore } from "@/store/registroAsistenciaStore";
 
+/**
+ * Al terminar el conteo (o tocar "Registrar siguiente"), regresa directo a
+ * identificar al próximo trabajador (`/asistencia`), no al hub `/proyecto`
+ * — un supervisor registrando asistencia de varios trabajadores seguidos no
+ * debería tener que volver a tocar "Registrar Asistencia" cada vez. Queda
+ * un enlace secundario para terminar y volver al hub cuando ya se acabó la
+ * ronda. `router.replace` (no `push`) en cada paso del wizard mantiene el
+ * histórico acotado — ver la nota de navegación en ARCHITECTURE.md.
+ */
 export default function CampoSuccessScreen() {
   const { movementType } = useAttendance();
   const proyectoSeleccionado = useProyectoStore((state) => state.proyectoSeleccionado);
   const { trabajadorSeleccionado, ubicacion, limpiar } = useRegistroAsistenciaStore();
   const [countdown, setCountdown] = useState(4);
 
-  const volverAEspera = () => {
+  const registrarSiguiente = () => {
     limpiar();
-    router.replace("/proyecto");
+    router.replace("/asistencia");
+  };
+
+  /**
+   * `router.back()`, no `replace("/proyecto")` — el histórico en este punto
+   * es siempre exactamente [proyecto, pantalla-actual] (cada paso del
+   * wizard reemplaza al anterior); `back()` regresa a ese `/proyecto`
+   * original sin crear una segunda entrada duplicada.
+   */
+  const terminarRonda = () => {
+    limpiar();
+    router.back();
   };
 
   useEffect(() => {
@@ -26,7 +46,7 @@ export default function CampoSuccessScreen() {
   }, []);
 
   useEffect(() => {
-    if (countdown <= 0) volverAEspera();
+    if (countdown <= 0) registrarSiguiente();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countdown]);
 
@@ -66,13 +86,17 @@ export default function CampoSuccessScreen() {
       </View>
 
       <Pressable
-        onPress={volverAEspera}
+        onPress={registrarSiguiente}
         className="mt-6 rounded-2xl bg-primary px-8 py-3.5"
         style={({ pressed }) => pressed && { opacity: 0.9 }}
       >
-        <Text className="font-semibold text-primary-foreground">Nuevo registro</Text>
+        <Text className="font-semibold text-primary-foreground">Registrar siguiente</Text>
       </Pressable>
-      <Text className="mt-3 text-xs text-muted-foreground">Cerrando en {countdown}s</Text>
+      <Text className="mt-3 text-xs text-muted-foreground">Siguiente trabajador en {countdown}s</Text>
+
+      <Pressable onPress={terminarRonda} className="mt-4" hitSlop={8}>
+        <Text className="text-xs text-muted-foreground underline">Terminar y volver al inicio</Text>
+      </Pressable>
     </View>
   );
 }
