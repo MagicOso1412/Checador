@@ -966,6 +966,50 @@ Fase 1 (captura y gestión de fotos de referencia) es completamente funcional y 
 sí sola — RH/admin ya puede acumular el material de entrenamiento antes de que exista
 el motor de reconocimiento.
 
+### Dev client — configuración lista, falta que el usuario lo compile
+
+Este entorno puede dejar todo el andamiaje de configuración listo, pero **no puede
+generar el dev client en sí**: `eas build` corre en la nube contra la cuenta de Expo
+del usuario (requiere `eas login`, credenciales que este entorno nunca debe manejar), y
+aunque no lo requiriera, este sandbox no tiene SDK de Android/Xcode para compilar nada
+localmente. Lo que sí se dejó listo:
+
+- `expo-dev-client` agregado como dependencia (`~56.0.24`, misma familia de versión que
+  el resto del proyecto en SDK 56) y registrado en `app.json` → `plugins`.
+- `app.json` → `android.package`: `com.hkcconstruccion.asistencia` — **valor
+  provisional**, mismo criterio que `RESPONSABLE_DATOS` en el consentimiento
+  biométrico: revísalo antes de publicar la app de verdad en Play Store (ahí sí es
+  permanente), pero no bloquea nada para un dev client de uso interno.
+- `eas.json` — perfiles `development` (`developmentClient: true`, APK de distribución
+  interna, para instalar directo en un teléfono sin pasar por una tienda),
+  `preview` y `production` (plantilla estándar, sin usar todavía).
+- Verificado sin poder ejecutar el build real: se corrió `npx expo prebuild --platform
+  android` sobre una copia temporal del proyecto (nunca sobre el repo real — generar
+  las carpetas `android/`/`ios/` de verdad convertiría el proyecto a workflow "bare" de
+  forma permanente, y este entorno no puede borrar archivos para deshacerlo si algo
+  saliera mal). El prebuild terminó sin errores y el `AndroidManifest.xml` /
+  `build.gradle` generados tienen el `applicationId` y los permisos esperados
+  (cámara, ubicación, almacenamiento) — buena señal de que `eas build` en la nube, que
+  corre ese mismo prebuild, no debería fallar por un error de configuración.
+
+**Lo que falta, y solo lo puede hacer el usuario en su propia máquina:**
+
+```bash
+npm install -g eas-cli   # una sola vez
+eas login                # con tu cuenta de Expo
+cd asistencia-hkc
+eas build --profile development --platform android
+```
+
+Eso sube el proyecto, compila en la nube (10-20 min típico) y al final da un link para
+descargar un `.apk`. Se instala en el teléfono como cualquier APK (permitir "fuentes
+desconocidas" si Android lo pide) — reemplaza a Expo Go: a partir de ahí, `npx expo
+start` sigue sirviendo para hot reload normal, pero corriendo dentro de este dev client
+en vez de Expo Go, lo cual es justo lo que permite instalar después
+`react-native-vision-camera`/`react-native-fast-tflite` (Fase 2/3) y probarlas de
+verdad. No hace falta repetir el build por cada cambio de código JS/TS — solo cuando
+cambie una dependencia nativa nueva.
+
 ---
 
 ## Roadmap
@@ -1034,10 +1078,14 @@ el motor de reconocimiento.
 - ✅ Arquitectura lista para el motor real: puerto `IReconocimientoFacialService`,
   `NoOpReconocimientoFacialService` (honesto, mismo criterio que
   `UnconfiguredSyncGateway`), función pura de similitud coseno.
+- ✅ Configuración del dev client lista (`expo-dev-client`, `eas.json`, `android.package`,
+  prebuild validado) — ver "Dev client" más arriba. Falta que el usuario corra
+  `eas login` + `eas build --profile development --platform android` desde su propia
+  máquina (requiere su cuenta de Expo, algo que este entorno no debe ni puede hacer).
 - ⬜ Generación de embeddings y reconocimiento automático en modo Kiosco — bloqueado
   por la necesidad de un dev client nativo custom (`react-native-vision-camera` +
-  `react-native-fast-tflite`), que este entorno no puede compilar ni probar. Requiere
-  que el usuario genere una build (`eas build` o local) para continuar esta fase.
+  `react-native-fast-tflite`), que este entorno no puede compilar ni probar. Continúa
+  en cuanto el usuario tenga el dev client instalado en un teléfono.
 
 ### Sprint 6 — Reportes ✅
 - ✅ Dashboard para RH: resumen (total, trabajadores/proyectos únicos, por tipo de
