@@ -929,7 +929,10 @@ asistencia).
     flujo continuo mientras puebla la base, sin tener que volver a buscar al
     trabajador recién creado en la lista.
 
-### Fase 2/3 — Detección y reconocimiento real (arquitectura lista, sin librería nativa)
+### Fase 2 — Detección real ✅ (requiere el dev client, no funciona en Expo Go)
+
+Con el dev client ya generado (ver más abajo), se instaló `react-native-vision-camera`
+y se implementó `detectarRostro()` de verdad.
 
 - `application/ports/IReconocimientoFacialService.ts` — puerto con dos métodos:
   `detectarRostro()` (fase 2, valida que una foto tenga un rostro) y
@@ -937,34 +940,61 @@ asistencia).
   `application/ports/`, no `domain/`, mismo aprendizaje ya aplicado a `ISyncGateway`:
   habla en términos de `fotoUri: string`, un detalle de infraestructura, no de una
   entidad de dominio pura.
-- `infrastructure/facial/NoOpReconocimientoFacialService.ts` — implementación por
-  defecto, falla con un mensaje claro (mismo criterio honesto que
-  `UnconfiguredSyncGateway`). El comentario del archivo documenta las librerías
-  investigadas en julio 2026 para cuando se implemente de verdad:
-  - **Detección**: `expo-face-detector` está deprecado desde Expo SDK 51 (usaba
-    Google Mobile Vision, descontinuado). La ruta recomendada hoy es
-    `react-native-vision-camera` + un frame processor de detección (ML Kit).
-  - **Reconocimiento**: no hay paquete "todo incluido" maduro; el patrón usado en
-    proyectos similares es `react-native-fast-tflite` cargando un modelo `.tflite`
-    tipo FaceNet/MobileFaceNet para generar embeddings, comparados por similitud
-    coseno.
-- `application/services/similitudCoseno.ts` — función pura (sin dependencias) que ya
-  se puede usar y probar hoy, aunque todavía no exista quien genere embeddings reales.
+- **Librerías instaladas**: `react-native-vision-camera@5.2.2` +
+  `react-native-vision-camera-face-detector@2.0.6` (envuelve Google ML Kit) + sus peer
+  dependencies `react-native-nitro-modules@0.36.5` y `react-native-nitro-image@0.15.1`.
+  Investigado de nuevo en agosto 2026 porque la librería cambió mucho desde la nota
+  anterior (julio 2026): VisionCamera **v5** es una reescritura completa sobre "Nitro
+  Modules" (`nitro.margelo.com`), con una API distinta a v4. Dos hallazgos concretos que
+  vale la pena dejar escritos para no repetir la investigación:
+  - **v5 no trae config plugin de Expo** (a diferencia de v3/v4, que sí tenían uno). Los
+    permisos de cámara/micrófono se declaran directo en `app.json`
+    (`ios.infoPlist.NSCameraUsageDescription` / `android.permissions`) — en este
+    proyecto ya venían cubiertos por el plugin de `expo-camera` (que ya declaraba
+    `NSCameraUsageDescription`/`NSMicrophoneUsageDescription`/`CAMERA`/`RECORD_AUDIO`
+    por defecto), así que no hizo falta tocar `app.json` para esto.
+  - El paquete de detección expone dos formas de usarse: un hook (`useImageFaceDetector`,
+    pensado para componentes React) y una **función factory sin React**
+    (`createImageFaceDetector()`, en `factory.js` — el hook es solo ese factory
+    envuelto en `useMemo`). Se usó la función factory directamente porque
+    `IReconocimientoFacialService` es una clase de infraestructura inyectada en use
+    cases, no un componente — no tiene sentido forzar un hook ahí. `detectFaces(uri)` es
+    síncrona (llamada JSI de Nitro, no una Promise), se envuelve en `async` solo para
+    cumplir la firma del puerto.
+- `infrastructure/facial/VisionCameraReconocimientoFacialService.ts` — implementación
+  real de `detectarRostro()`: `detector.detectFaces(fotoUri).length === 1` — exactamente
+  un rostro, no "al menos uno" (una foto de referencia debe ser de una sola persona; 2+
+  rostros es tan inválida como 0, no hay forma honesta de saber cuál es el trabajador).
+  `generarEmbedding()` sigue delegando a `NoOpReconocimientoFacialService` (fase 3, ver
+  abajo). Detector creado una sola vez a nivel de módulo (objeto nativo costoso), mismo
+  criterio que `getDatabase()`.
+- `trabajadores/fotos.tsx` — `handleCaptured()` ahora llama `detectarRostro()` después
+  de `esArchivoDeFotoValido()` y antes de guardar; si no hay exactamente un rostro,
+  ofrece reintentar (mismo patrón ya usado para archivo inválido). Si el detector mismo
+  lanza un error, no bloquea la captura (perder la foto por un fallo del detector sería
+  peor que guardar una foto sin esa validación extra) — se loguea con `console.warn` y
+  se deja pasar.
+- `infrastructure/facial/NoOpReconocimientoFacialService.ts` — sigue existiendo como
+  implementación honesta para `generarEmbedding()`, y documenta las librerías evaluadas
+  originalmente para reconocimiento (fase 3, sin cambios: `react-native-fast-tflite` +
+  un modelo `.tflite`).
+- `application/services/similitudCoseno.ts` — función pura (sin dependencias) que ya se
+  puede usar y probar hoy, aunque todavía no exista quien genere embeddings reales.
 
-### Por qué las fases 2 y 3 no se instalaron todavía
+### Fase 3 — Reconocimiento real (embeddings) — todavía sin implementar
 
-Ambas rutas (`react-native-vision-camera`, `react-native-fast-tflite`) son módulos
-nativos con frame processors — requieren `react-native-reanimated`/`worklets-core` en
-modo nativo, lo que **rompe Expo Go** y exige un dev client custom (`expo-dev-client` +
-`eas build`, o una build local con Android Studio/Xcode). Este entorno de desarrollo no
-tiene forma de compilar ni ejecutar ese tipo de build — instalar esas librerías aquí
-significaría escribir código que nadie puede verificar hasta que el usuario compile un
-dev client fuera de este entorno, con el mismo riesgo que ya se vio con el crash de
-AsyncStorage. La arquitectura (puertos, entidades, función de similitud) ya está lista
-para recibir la implementación real el día que exista esa build; mientras tanto, la
-Fase 1 (captura y gestión de fotos de referencia) es completamente funcional y útil por
-sí sola — RH/admin ya puede acumular el material de entrenamiento antes de que exista
-el motor de reconocimiento.
+`generarEmbedding()` sigue delegando en `NoOpReconocimientoFacialService`. A diferencia
+de la fase 2, aquí no hay un paquete "todo incluido": el patrón usado en proyectos
+similares es `react-native-fast-tflite` cargando un modelo `.tflite` tipo
+FaceNet/MobileFaceNet para generar un vector de características, comparado por similitud
+coseno (ya implementada) contra los embeddings de las fotos de referencia. Falta, en
+orden: (1) instalar `react-native-fast-tflite` (mismo flujo de esta sección — otro
+`eas build` cuando se haga), (2) elegir y verificar la licencia de un modelo `.tflite`
+concreto (muchos modelos "gratis" en internet son solo para uso no comercial — hay que
+revisar esto con cuidado antes de empaquetar uno), (3) generar y guardar embeddings para
+las fotos de referencia ya capturadas, (4) implementar el matching en el flujo de
+Kiosco/Campo. Nada de esto está bloqueado por el entorno de desarrollo — es trabajo de
+investigación y código que puede seguir avanzando.
 
 ### Dev client — configuración lista, falta que el usuario lo compile
 
@@ -1005,10 +1035,20 @@ Eso sube el proyecto, compila en la nube (10-20 min típico) y al final da un li
 descargar un `.apk`. Se instala en el teléfono como cualquier APK (permitir "fuentes
 desconocidas" si Android lo pide) — reemplaza a Expo Go: a partir de ahí, `npx expo
 start` sigue sirviendo para hot reload normal, pero corriendo dentro de este dev client
-en vez de Expo Go, lo cual es justo lo que permite instalar después
-`react-native-vision-camera`/`react-native-fast-tflite` (Fase 2/3) y probarlas de
-verdad. No hace falta repetir el build por cada cambio de código JS/TS — solo cuando
-cambie una dependencia nativa nueva.
+en vez de Expo Go. **No hace falta repetir el build por cada cambio de código JS/TS —
+solo cuando cambia una dependencia nativa nueva.**
+
+**Actualización (mismo día): el usuario ya generó e instaló este primer APK.** Ese
+primer build fue *antes* de instalar `react-native-vision-camera` (Fase 2, sección de
+arriba) — un dev client solo contiene los módulos nativos que existían al momento de
+compilarlo, así que el APK ya instalado **no** trae vision-camera todavía. Hace falta
+un segundo `eas build --profile development --platform android` (mismo comando de
+arriba) para que el reconocimiento facial funcione en el teléfono. Éste sí es un caso
+real de "cambió una dependencia nativa" — no es opcional, es el paso que falta para
+poder probar la Fase 2. Después de este segundo build, agregar `react-native-fast-tflite`
+(Fase 3) va a pedir un tercer build — pero cualquier ajuste de JS/TS mientras tanto
+(incluyendo tocar `VisionCameraReconocimientoFacialService.ts`, `fotos.tsx`, etc.) sí
+recarga en caliente sin rebuild.
 
 ---
 
@@ -1078,14 +1118,15 @@ cambie una dependencia nativa nueva.
 - ✅ Arquitectura lista para el motor real: puerto `IReconocimientoFacialService`,
   `NoOpReconocimientoFacialService` (honesto, mismo criterio que
   `UnconfiguredSyncGateway`), función pura de similitud coseno.
-- ✅ Configuración del dev client lista (`expo-dev-client`, `eas.json`, `android.package`,
-  prebuild validado) — ver "Dev client" más arriba. Falta que el usuario corra
-  `eas login` + `eas build --profile development --platform android` desde su propia
-  máquina (requiere su cuenta de Expo, algo que este entorno no debe ni puede hacer).
-- ⬜ Generación de embeddings y reconocimiento automático en modo Kiosco — bloqueado
-  por la necesidad de un dev client nativo custom (`react-native-vision-camera` +
-  `react-native-fast-tflite`), que este entorno no puede compilar ni probar. Continúa
-  en cuanto el usuario tenga el dev client instalado en un teléfono.
+- ✅ Dev client generado e instalado por el usuario en un teléfono real (primer build).
+- ✅ Detección real de rostro (`react-native-vision-camera` +
+  `react-native-vision-camera-face-detector`) integrada en la captura de fotos de
+  referencia — ver "Fase 2" más arriba. **Pendiente un segundo `eas build`** para que
+  el usuario pueda probarlo (el primer APK instalado es anterior a esta librería).
+- ⬜ Generación de embeddings y reconocimiento automático en modo Kiosco (Fase 3) —
+  falta instalar `react-native-fast-tflite` y elegir/verificar la licencia de un modelo
+  `.tflite` de embeddings faciales. No bloqueado por el entorno de desarrollo, es el
+  siguiente paso natural de investigación + código.
 
 ### Sprint 6 — Reportes ✅
 - ✅ Dashboard para RH: resumen (total, trabajadores/proyectos únicos, por tipo de

@@ -10,6 +10,7 @@ import { palette } from "@/constants/palette";
 import { shadowSm } from "@/constants/shadows";
 import type { FotoReferenciaFacial } from "@/domain/entities/FotoReferenciaFacial";
 import { esArchivoDeFotoValido, type SavedPhoto } from "@/infrastructure/camera/cameraService";
+import { VisionCameraReconocimientoFacialService } from "@/infrastructure/facial/VisionCameraReconocimientoFacialService";
 import { useConsentimientoBiometricoStore } from "@/store/consentimientoBiometricoStore";
 import { MAXIMO_FOTOS_POR_TRABAJADOR, useFotosReferenciaStore } from "@/store/fotosReferenciaStore";
 import { useTrabajadoresAdminStore } from "@/store/trabajadoresAdminStore";
@@ -27,6 +28,14 @@ const GUIAS_POSE = [
   "Busca buena luz, sin sombras fuertes en la cara",
   "Con lentes o gorra, si los usas normalmente en obra",
 ];
+
+/**
+ * Instanciado a nivel de módulo, no dentro del componente: crear el detector
+ * levanta un objeto nativo (Nitro `HybridObject`) — mismo criterio que otros
+ * singletons de infraestructura del proyecto (`getDatabase()`), no algo que
+ * deba recrearse en cada render.
+ */
+const reconocimientoFacial = new VisionCameraReconocimientoFacialService();
 
 function GuiaEncuadre({ indice, total }: { indice: number; total: number }) {
   return (
@@ -127,6 +136,31 @@ export default function FotosReferenciaScreen() {
       Alert.alert(
         "Foto no válida",
         "La cámara no guardó la foto correctamente. Vuelve a intentarlo.",
+        [{ text: "Reintentar", onPress: () => setMostrandoCamara(true) }],
+      );
+      setMostrandoCamara(false);
+      return;
+    }
+
+    // Fase 2 de reconocimiento facial (ver ARCHITECTURE.MD): valida que la
+    // foto tenga exactamente un rostro detectable antes de guardarla como
+    // referencia — mismo espíritu que `esArchivoDeFotoValido`, rechazar aquí
+    // es mucho más barato que descubrir después, al usar reconocimiento real,
+    // que media galería de "fotos de referencia" nunca tuvo un rostro usable.
+    // Si el detector mismo falla (no debería, pero por si acaso) no se
+    // bloquea la captura — perder el trabajo del usuario por un error del
+    // detector sería peor que guardar una foto sin esa validación extra.
+    let tieneRostro = true;
+    try {
+      tieneRostro = await reconocimientoFacial.detectarRostro(photo.uri);
+    } catch (err) {
+      console.warn("[fotos] no se pudo validar el rostro de la foto", err);
+    }
+
+    if (!tieneRostro) {
+      Alert.alert(
+        "No se detectó un rostro claro",
+        "Asegúrate de que se vea un solo rostro, de frente y bien iluminado. Vuelve a intentarlo.",
         [{ text: "Reintentar", onPress: () => setMostrandoCamara(true) }],
       );
       setMostrandoCamara(false);
