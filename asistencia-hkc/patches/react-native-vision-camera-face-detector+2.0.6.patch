@@ -1,0 +1,770 @@
+diff --git a/node_modules/react-native-vision-camera-face-detector/LICENSE b/node_modules/react-native-vision-camera-face-detector/LICENSE
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/README.md b/node_modules/react-native-vision-camera-face-detector/README.md
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/VisionCameraFaceDetector.podspec b/node_modules/react-native-vision-camera-face-detector/VisionCameraFaceDetector.podspec
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/CMakeLists.txt b/node_modules/react-native-vision-camera-face-detector/android/CMakeLists.txt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/build.gradle b/node_modules/react-native-vision-camera-face-detector/android/build.gradle
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/fix-prefab.gradle b/node_modules/react-native-vision-camera-face-detector/android/fix-prefab.gradle
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/gradle.properties b/node_modules/react-native-vision-camera-face-detector/android/gradle.properties
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/AndroidManifest.xml b/node_modules/react-native-vision-camera-face-detector/android/src/main/AndroidManifest.xml
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/cpp/cpp-adapter.cpp b/node_modules/react-native-vision-camera-face-detector/android/src/main/cpp/cpp-adapter.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/FaceDetectorOrientation.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/FaceDetectorOrientation.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridFace.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridFace.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridFaceDetector.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridFaceDetector.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridFaceDetectorFactory.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridFaceDetectorFactory.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridFaceDetectorOutput.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridFaceDetectorOutput.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridImageFaceDetector.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridImageFaceDetector.kt
+old mode 100644
+new mode 100755
+index 5d116a9..38efdcb
+--- a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridImageFaceDetector.kt
++++ b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridImageFaceDetector.kt
+@@ -22,14 +22,11 @@ class HybridImageFaceDetector(
+   )
+ 
+   private fun resolveInputImage(
+-    input: Any?
++    input: InputImage
+   ): String {
+     return when (input) {
+-      is String -> input
+-      is Map<*, *> -> {
+-        val uri = input["uri"] as? String
+-        uri ?: throw IllegalArgumentException("Invalid image object: missing 'uri'")
+-      }
++      is InputImage.First -> input.value
++      is InputImage.Third -> input.value.uri
+       else -> throw IllegalArgumentException("Invalid image type. Expected string or { uri }")
+     }
+   }
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridImageFaceDetectorFactory.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/HybridImageFaceDetectorFactory.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/NitroVisionCameraFaceDetectorPackage.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/NitroVisionCameraFaceDetectorPackage.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/extensions/FaceDetectorOptions+toMLFaceDetectorOptions.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/extensions/FaceDetectorOptions+toMLFaceDetectorOptions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/extensions/ML+HybridFrameSpec.kt b/node_modules/react-native-vision-camera-face-detector/android/src/main/java/com/margelo/nitro/camera/facedetector/extensions/ML+HybridFrameSpec.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/Extensions/ML+FaceDetectorOptions.swift b/node_modules/react-native-vision-camera-face-detector/ios/Extensions/ML+FaceDetectorOptions.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/Extensions/ML+HybridFrameSpec.swift b/node_modules/react-native-vision-camera-face-detector/ios/Extensions/ML+HybridFrameSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/Extensions/UI+CameraOrientation.swift b/node_modules/react-native-vision-camera-face-detector/ios/Extensions/UI+CameraOrientation.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/FaceDetectorDelegate.swift b/node_modules/react-native-vision-camera-face-detector/ios/FaceDetectorDelegate.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/FaceDetectorOrientation.swift b/node_modules/react-native-vision-camera-face-detector/ios/FaceDetectorOrientation.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/HybridFace.swift b/node_modules/react-native-vision-camera-face-detector/ios/HybridFace.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/HybridFaceDetector.swift b/node_modules/react-native-vision-camera-face-detector/ios/HybridFaceDetector.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/HybridFaceDetectorFactory.swift b/node_modules/react-native-vision-camera-face-detector/ios/HybridFaceDetectorFactory.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/HybridFaceDetectorOutput.swift b/node_modules/react-native-vision-camera-face-detector/ios/HybridFaceDetectorOutput.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/HybridImageFaceDetector.swift b/node_modules/react-native-vision-camera-face-detector/ios/HybridImageFaceDetector.swift
+old mode 100644
+new mode 100755
+index 608050c..dea2d1d
+--- a/node_modules/react-native-vision-camera-face-detector/ios/HybridImageFaceDetector.swift
++++ b/node_modules/react-native-vision-camera-face-detector/ios/HybridImageFaceDetector.swift
+@@ -52,15 +52,15 @@ class HybridImageFaceDetector: HybridImageFaceDetectorSpec {
+   }
+ 
+   private func resolveInputImage(
+-    _ input: Any
++    _ input: InputImage
+   ) throws -> String {
+-    if let uri = input as? String {
+-      return uri
+-    }
+-
+-    if let object = input as? [String: Any],
+-      let uri = object["uri"] as? String {
++    switch input {
++    case .first(let uri):
+       return uri
++    case .third(let object):
++      return object.uri
++    case .second:
++      break
+     }
+ 
+     throw NSError(
+diff --git a/node_modules/react-native-vision-camera-face-detector/ios/HybridImageFaceDetectorFactory.swift b/node_modules/react-native-vision-camera-face-detector/ios/HybridImageFaceDetectorFactory.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/factory.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/factory.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/factory.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/factory.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useFaceDetector.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useFaceDetector.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useFaceDetector.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useFaceDetector.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useFaceDetectorOutput.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useFaceDetectorOutput.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useFaceDetectorOutput.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useFaceDetectorOutput.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useImageFaceDetector.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useImageFaceDetector.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useImageFaceDetector.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/hooks/useImageFaceDetector.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/index.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/index.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/index.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/index.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/package.json b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/package.json
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Bounds.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Bounds.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Bounds.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Bounds.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Contours.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Contours.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Contours.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Contours.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Face.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Face.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Face.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Face.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/FaceDetector.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/FaceDetector.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/FaceDetector.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/FaceDetector.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/FaceDetectorFactory.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/FaceDetectorFactory.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/FaceDetectorFactory.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/FaceDetectorFactory.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/ImageFaceDetector.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/ImageFaceDetector.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/ImageFaceDetector.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/ImageFaceDetector.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/ImageFaceDetectorFactory.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/ImageFaceDetectorFactory.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/ImageFaceDetectorFactory.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/ImageFaceDetectorFactory.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Landmarks.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Landmarks.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Landmarks.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/specs/Landmarks.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/views/Camera.js b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/views/Camera.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/commonjs/views/Camera.js.map b/node_modules/react-native-vision-camera-face-detector/lib/commonjs/views/Camera.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/factory.js b/node_modules/react-native-vision-camera-face-detector/lib/module/factory.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/factory.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/factory.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useFaceDetector.js b/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useFaceDetector.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useFaceDetector.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useFaceDetector.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useFaceDetectorOutput.js b/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useFaceDetectorOutput.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useFaceDetectorOutput.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useFaceDetectorOutput.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useImageFaceDetector.js b/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useImageFaceDetector.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useImageFaceDetector.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/hooks/useImageFaceDetector.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/index.js b/node_modules/react-native-vision-camera-face-detector/lib/module/index.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/index.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/index.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Bounds.js b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Bounds.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Bounds.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Bounds.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Contours.js b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Contours.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Contours.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Contours.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Face.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Face.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Face.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Face.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/FaceDetector.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/FaceDetector.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/FaceDetector.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/FaceDetector.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/FaceDetectorFactory.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/FaceDetectorFactory.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/FaceDetectorFactory.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/FaceDetectorFactory.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/ImageFaceDetector.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/ImageFaceDetector.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/ImageFaceDetector.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/ImageFaceDetector.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/ImageFaceDetectorFactory.nitro.js b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/ImageFaceDetectorFactory.nitro.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/ImageFaceDetectorFactory.nitro.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/ImageFaceDetectorFactory.nitro.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Landmarks.js b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Landmarks.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Landmarks.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/specs/Landmarks.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/views/Camera.js b/node_modules/react-native-vision-camera-face-detector/lib/module/views/Camera.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/module/views/Camera.js.map b/node_modules/react-native-vision-camera-face-detector/lib/module/views/Camera.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/factory.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/factory.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/factory.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/factory.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useFaceDetector.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useFaceDetector.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useFaceDetector.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useFaceDetector.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useFaceDetectorOutput.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useFaceDetectorOutput.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useFaceDetectorOutput.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useFaceDetectorOutput.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useImageFaceDetector.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useImageFaceDetector.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useImageFaceDetector.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/hooks/useImageFaceDetector.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/index.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/index.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/index.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/index.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Bounds.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Bounds.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Bounds.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Bounds.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Contours.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Contours.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Contours.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Contours.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Face.nitro.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Face.nitro.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Face.nitro.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Face.nitro.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/FaceDetector.nitro.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/FaceDetector.nitro.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/FaceDetector.nitro.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/FaceDetector.nitro.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/FaceDetectorFactory.nitro.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/FaceDetectorFactory.nitro.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/FaceDetectorFactory.nitro.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/FaceDetectorFactory.nitro.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/ImageFaceDetector.nitro.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/ImageFaceDetector.nitro.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/ImageFaceDetector.nitro.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/ImageFaceDetector.nitro.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/ImageFaceDetectorFactory.nitro.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/ImageFaceDetectorFactory.nitro.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/ImageFaceDetectorFactory.nitro.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/ImageFaceDetectorFactory.nitro.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Landmarks.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Landmarks.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Landmarks.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/specs/Landmarks.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/views/Camera.d.ts b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/views/Camera.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/views/Camera.d.ts.map b/node_modules/react-native-vision-camera-face-detector/lib/typescript/src/views/Camera.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitro.json b/node_modules/react-native-vision-camera-face-detector/nitro.json
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/.gitattributes b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/.gitattributes
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/VisionCameraFaceDetector+autolinking.cmake b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/VisionCameraFaceDetector+autolinking.cmake
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/VisionCameraFaceDetector+autolinking.gradle b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/VisionCameraFaceDetector+autolinking.gradle
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/VisionCameraFaceDetectorOnLoad.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/VisionCameraFaceDetectorOnLoad.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/VisionCameraFaceDetectorOnLoad.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/VisionCameraFaceDetectorOnLoad.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JBounds.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JBounds.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JCameraPosition.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JCameraPosition.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JContours.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JContours.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFaceDetectorOptions.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFaceDetectorOptions.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFaceDetectorOutputOptions.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFaceDetectorOutputOptions.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFaceDetectorOutputResolution.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFaceDetectorOutputResolution.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFunc_void_std__exception_ptr.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFunc_void_std__exception_ptr.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFunc_void_std__vector_std__shared_ptr_HybridFaceSpec__.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JFunc_void_std__vector_std__shared_ptr_HybridFaceSpec__.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceDetectorFactorySpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceDetectorFactorySpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceDetectorFactorySpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceDetectorFactorySpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceDetectorSpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceDetectorSpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceDetectorSpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceDetectorSpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceSpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceSpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceSpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridFaceSpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridImageFaceDetectorFactorySpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridImageFaceDetectorFactorySpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridImageFaceDetectorFactorySpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridImageFaceDetectorFactorySpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridImageFaceDetectorSpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridImageFaceDetectorSpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridImageFaceDetectorSpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JHybridImageFaceDetectorSpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JImageFaceDetectorOptions.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JImageFaceDetectorOptions.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JImageUri.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JImageUri.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JInputImage.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JInputImage.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JInputImage.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JInputImage.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JLandmarks.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JLandmarks.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JPerformanceMode.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JPerformanceMode.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JPoint.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/c++/JPoint.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Bounds.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Bounds.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/CameraPosition.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/CameraPosition.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Contours.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Contours.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/FaceDetectorOptions.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/FaceDetectorOptions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/FaceDetectorOutputOptions.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/FaceDetectorOutputOptions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/FaceDetectorOutputResolution.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/FaceDetectorOutputResolution.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Func_void_std__exception_ptr.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Func_void_std__exception_ptr.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Func_void_std__vector_std__shared_ptr_HybridFaceSpec__.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Func_void_std__vector_std__shared_ptr_HybridFaceSpec__.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridFaceDetectorFactorySpec.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridFaceDetectorFactorySpec.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridFaceDetectorSpec.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridFaceDetectorSpec.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridFaceSpec.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridFaceSpec.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridImageFaceDetectorFactorySpec.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridImageFaceDetectorFactorySpec.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridImageFaceDetectorSpec.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/HybridImageFaceDetectorSpec.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/ImageFaceDetectorOptions.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/ImageFaceDetectorOptions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/ImageUri.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/ImageUri.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/InputImage.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/InputImage.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Landmarks.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Landmarks.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/PerformanceMode.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/PerformanceMode.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Point.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/Point.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/VisionCameraFaceDetectorOnLoad.kt b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/android/kotlin/com/margelo/nitro/camera/facedetector/VisionCameraFaceDetectorOnLoad.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetector+autolinking.rb b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetector+autolinking.rb
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetector-Swift-Cxx-Bridge.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetector-Swift-Cxx-Bridge.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetector-Swift-Cxx-Bridge.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetector-Swift-Cxx-Bridge.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetector-Swift-Cxx-Umbrella.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetector-Swift-Cxx-Umbrella.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetectorAutolinking.mm b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetectorAutolinking.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetectorAutolinking.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/VisionCameraFaceDetectorAutolinking.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceDetectorFactorySpecSwift.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceDetectorFactorySpecSwift.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceDetectorFactorySpecSwift.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceDetectorFactorySpecSwift.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceDetectorSpecSwift.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceDetectorSpecSwift.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceDetectorSpecSwift.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceDetectorSpecSwift.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceSpecSwift.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceSpecSwift.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceSpecSwift.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridFaceSpecSwift.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridImageFaceDetectorFactorySpecSwift.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridImageFaceDetectorFactorySpecSwift.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridImageFaceDetectorFactorySpecSwift.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridImageFaceDetectorFactorySpecSwift.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridImageFaceDetectorSpecSwift.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridImageFaceDetectorSpecSwift.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridImageFaceDetectorSpecSwift.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/c++/HybridImageFaceDetectorSpecSwift.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Bounds.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Bounds.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/CameraPosition.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/CameraPosition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Contours.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Contours.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/FaceDetectorOptions.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/FaceDetectorOptions.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/FaceDetectorOutputOptions.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/FaceDetectorOutputOptions.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/FaceDetectorOutputResolution.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/FaceDetectorOutputResolution.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Func_void_std__exception_ptr.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Func_void_std__exception_ptr.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Func_void_std__vector_std__shared_ptr_HybridFaceSpec__.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Func_void_std__vector_std__shared_ptr_HybridFaceSpec__.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceDetectorFactorySpec.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceDetectorFactorySpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceDetectorFactorySpec_cxx.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceDetectorFactorySpec_cxx.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceDetectorSpec.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceDetectorSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceDetectorSpec_cxx.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceDetectorSpec_cxx.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceSpec.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceSpec_cxx.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridFaceSpec_cxx.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridImageFaceDetectorFactorySpec.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridImageFaceDetectorFactorySpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridImageFaceDetectorFactorySpec_cxx.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridImageFaceDetectorFactorySpec_cxx.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridImageFaceDetectorSpec.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridImageFaceDetectorSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridImageFaceDetectorSpec_cxx.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/HybridImageFaceDetectorSpec_cxx.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/ImageFaceDetectorOptions.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/ImageFaceDetectorOptions.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/ImageUri.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/ImageUri.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/InputImage.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/InputImage.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Landmarks.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Landmarks.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/PerformanceMode.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/PerformanceMode.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Point.swift b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/ios/swift/Point.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/Bounds.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/Bounds.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/CameraPosition.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/CameraPosition.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/Contours.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/Contours.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/FaceDetectorOptions.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/FaceDetectorOptions.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/FaceDetectorOutputOptions.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/FaceDetectorOutputOptions.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/FaceDetectorOutputResolution.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/FaceDetectorOutputResolution.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceDetectorFactorySpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceDetectorFactorySpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceDetectorFactorySpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceDetectorFactorySpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceDetectorSpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceDetectorSpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceDetectorSpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceDetectorSpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceSpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceSpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceSpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridFaceSpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridImageFaceDetectorFactorySpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridImageFaceDetectorFactorySpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridImageFaceDetectorFactorySpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridImageFaceDetectorFactorySpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridImageFaceDetectorSpec.cpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridImageFaceDetectorSpec.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridImageFaceDetectorSpec.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/HybridImageFaceDetectorSpec.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/ImageFaceDetectorOptions.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/ImageFaceDetectorOptions.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/ImageUri.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/ImageUri.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/Landmarks.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/Landmarks.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/PerformanceMode.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/PerformanceMode.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/Point.hpp b/node_modules/react-native-vision-camera-face-detector/nitrogen/generated/shared/c++/Point.hpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/factory.ts b/node_modules/react-native-vision-camera-face-detector/src/factory.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/hooks/useFaceDetector.ts b/node_modules/react-native-vision-camera-face-detector/src/hooks/useFaceDetector.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/hooks/useFaceDetectorOutput.ts b/node_modules/react-native-vision-camera-face-detector/src/hooks/useFaceDetectorOutput.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/hooks/useImageFaceDetector.ts b/node_modules/react-native-vision-camera-face-detector/src/hooks/useImageFaceDetector.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/index.ts b/node_modules/react-native-vision-camera-face-detector/src/index.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/specs/Bounds.ts b/node_modules/react-native-vision-camera-face-detector/src/specs/Bounds.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/specs/Contours.ts b/node_modules/react-native-vision-camera-face-detector/src/specs/Contours.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/specs/Face.nitro.ts b/node_modules/react-native-vision-camera-face-detector/src/specs/Face.nitro.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/specs/FaceDetector.nitro.ts b/node_modules/react-native-vision-camera-face-detector/src/specs/FaceDetector.nitro.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/specs/FaceDetectorFactory.nitro.ts b/node_modules/react-native-vision-camera-face-detector/src/specs/FaceDetectorFactory.nitro.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/specs/ImageFaceDetector.nitro.ts b/node_modules/react-native-vision-camera-face-detector/src/specs/ImageFaceDetector.nitro.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/specs/ImageFaceDetectorFactory.nitro.ts b/node_modules/react-native-vision-camera-face-detector/src/specs/ImageFaceDetectorFactory.nitro.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/specs/Landmarks.ts b/node_modules/react-native-vision-camera-face-detector/src/specs/Landmarks.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/react-native-vision-camera-face-detector/src/views/Camera.tsx b/node_modules/react-native-vision-camera-face-detector/src/views/Camera.tsx
+old mode 100644
+new mode 100755

@@ -981,6 +981,57 @@ y se implementó `detectarRostro()` de verdad.
 - `application/services/similitudCoseno.ts` — función pura (sin dependencias) que ya se
   puede usar y probar hoy, aunque todavía no exista quien genere embeddings reales.
 
+### Bug corregido: `detectFaces` crasheaba con "Invalid image type" en Android
+
+Después del segundo `eas build` (el que ya incluía `react-native-vision-camera`), el
+usuario probó capturar una foto de referencia y **toda** captura fallaba con:
+
+```
+[Error: ImageFaceDetector.detectFaces(...): java.lang.IllegalArgumentException:
+Invalid image type. Expected string or { uri }
+  at ...HybridImageFaceDetector.resolveInputImage(HybridImageFaceDetector.kt:33)
+```
+
+**Causa (confirmada leyendo el código Kotlin generado, no adivinada):** el tipo
+TypeScript `InputImage = string | number | ImageUri` (un union) se traduce por Nitrogen
+(el generador de código de Nitro Modules) a una **sealed class** en Kotlin —
+`InputImage.First(String)` / `.Second(Double)` / `.Third(ImageUri)` — no al valor crudo.
+Pero el archivo escrito a mano `HybridImageFaceDetector.kt` (parte del paquete, no
+generado) validaba el argumento con `input is String` / `input is Map<*, *>`, comparando
+contra el valor *sin envolver*. Como lo que realmente llega es el wrapper `InputImage.*`,
+ninguna de esas comparaciones podía ser verdadera nunca — la excepción se lanzaba
+**siempre**, para cualquier entrada, no solo para el caso del proyecto. No era un error
+de cómo se estaba llamando `detectFaces()` desde este código.
+
+Confirmado que es un bug conocido y ya corregido río arriba: [issue #241](https://github.com/luicfrr/react-native-vision-camera-face-detector/issues/241)
+del propio repositorio, con [PR #242](https://github.com/luicfrr/react-native-vision-camera-face-detector/pull/242)
+ya mergeado a `main` (27 de julio de 2026) — pero **todavía no publicado** en ningún
+release estable de npm (la versión instalada, `2.0.6`, es anterior al fix; solo existe
+en un prerelease `2.0.7-0` sin publicar como `latest`).
+
+**Solución aplicada:** se parcheó `node_modules` directamente con el mismo diff ya
+mergeado upstream (Kotlin y Swift, aunque hoy solo se prueba Android) usando
+[`patch-package`](https://www.npmjs.com/package/patch-package) — la forma estándar de
+aplicar un fix a una dependencia de terceros sin hacer fork del paquete completo:
+
+- `patches/react-native-vision-camera-face-detector+2.0.6.patch` — el diff real (ver
+  `HybridImageFaceDetector.kt`/`.swift`: `resolveInputImage` ahora recibe `InputImage`
+  tipado (no `Any?`) y desenvuelve `.First`/`.Third` antes de comparar).
+- `package.json` → `"postinstall": "patch-package"` + `patch-package` como
+  devDependency: el parche se reaplica automáticamente cada vez que alguien corre
+  `npm install`, incluyendo en la máquina del usuario y en el build de `eas build` (que
+  corre `npm install` en la nube antes de compilar) — no es un cambio manual que haya
+  que repetir.
+- **Quitar este parche en el futuro:** cuando `react-native-vision-camera-face-detector`
+  publique una versión estable que ya incluya el fix (revisar el
+  [issue #241](https://github.com/luicfrr/react-native-vision-camera-face-detector/issues/241)),
+  actualizar la dependencia a esa versión y borrar el archivo `.patch` — `patch-package`
+  avisa en el `postinstall` si un parche ya no aplica limpio contra una versión nueva.
+
+**Esto es codigo nativo (Kotlin/Swift), no JS/TS — igual que instalar una librería
+nativa nueva, requiere otro `eas build` antes de poder probarlo.** El segundo build que
+ya corrió el usuario no tiene este parche (el bug lo descubrimos revisando ese resultado).
+
 ### Fase 3 — Reconocimiento real (embeddings) — todavía sin implementar
 
 `generarEmbedding()` sigue delegando en `NoOpReconocimientoFacialService`. A diferencia
@@ -1038,15 +1089,17 @@ start` sigue sirviendo para hot reload normal, pero corriendo dentro de este dev
 en vez de Expo Go. **No hace falta repetir el build por cada cambio de código JS/TS —
 solo cuando cambia una dependencia nativa nueva.**
 
-**Actualización (mismo día): el usuario ya generó e instaló este primer APK.** Ese
-primer build fue *antes* de instalar `react-native-vision-camera` (Fase 2, sección de
-arriba) — un dev client solo contiene los módulos nativos que existían al momento de
-compilarlo, así que el APK ya instalado **no** trae vision-camera todavía. Hace falta
-un segundo `eas build --profile development --platform android` (mismo comando de
-arriba) para que el reconocimiento facial funcione en el teléfono. Éste sí es un caso
-real de "cambió una dependencia nativa" — no es opcional, es el paso que falta para
-poder probar la Fase 2. Después de este segundo build, agregar `react-native-fast-tflite`
-(Fase 3) va a pedir un tercer build — pero cualquier ajuste de JS/TS mientras tanto
+**Actualización (mismo día): el usuario ya generó e instaló un primer APK, y luego un
+segundo.** El primer build fue *antes* de instalar `react-native-vision-camera` (Fase 2,
+sección de arriba) — un dev client solo contiene los módulos nativos que existían al
+momento de compilarlo. El segundo build ya incluía vision-camera, y con ese el usuario
+pudo probar la app y encontrar el bug de `detectFaces` documentado arriba ("Bug
+corregido: `detectFaces` crasheaba..."). Ese bug ya está parchado (`patch-package`), pero
+el parche es código nativo Kotlin/Swift — **hace falta un tercer
+`eas build --profile development --platform android`** (mismo comando de siempre) para
+que el fix llegue al teléfono; el APK que el usuario tiene instalado ahora mismo sigue
+teniendo el bug. Después de este tercer build, agregar `react-native-fast-tflite`
+(Fase 3) va a pedir un cuarto — pero cualquier ajuste de JS/TS mientras tanto
 (incluyendo tocar `VisionCameraReconocimientoFacialService.ts`, `fotos.tsx`, etc.) sí
 recarga en caliente sin rebuild.
 
@@ -1118,11 +1171,14 @@ recarga en caliente sin rebuild.
 - ✅ Arquitectura lista para el motor real: puerto `IReconocimientoFacialService`,
   `NoOpReconocimientoFacialService` (honesto, mismo criterio que
   `UnconfiguredSyncGateway`), función pura de similitud coseno.
-- ✅ Dev client generado e instalado por el usuario en un teléfono real (primer build).
+- ✅ Dev client generado e instalado por el usuario en un teléfono real (dos builds:
+  primero sin vision-camera, luego con vision-camera).
 - ✅ Detección real de rostro (`react-native-vision-camera` +
   `react-native-vision-camera-face-detector`) integrada en la captura de fotos de
-  referencia — ver "Fase 2" más arriba. **Pendiente un segundo `eas build`** para que
-  el usuario pueda probarlo (el primer APK instalado es anterior a esta librería).
+  referencia — ver "Fase 2" más arriba.
+- ✅ Bug encontrado al probar en el segundo build (`detectFaces` crasheaba siempre en
+  Android, bug conocido upstream) — parchado con `patch-package`, ver "Bug corregido"
+  más arriba. **Pendiente un tercer `eas build`** para que el fix llegue al teléfono.
 - ⬜ Generación de embeddings y reconocimiento automático en modo Kiosco (Fase 3) —
   falta instalar `react-native-fast-tflite` y elegir/verificar la licencia de un modelo
   `.tflite` de embeddings faciales. No bloqueado por el entorno de desarrollo, es el
